@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#FFF3E0"/>
+  
+  <!-- Connected Systems -->
+  <circle cx="200" cy="150" r="60" fill="#FF9800"/>
+  <circle cx="80" cy="100" r="30" fill="#2196F3"/>
+  <circle cx="320" cy="100" r="30" fill="#4CAF50"/>
+  <circle cx="80" cy="200" r="30" fill="#9C27B0"/>
+  <circle cx="320" cy="200" r="30" fill="#F44336"/>
+  
+  <!-- Connection Lines -->
+  <line x1="110" y1="100" x2="170" y2="130" stroke="#90A4AE" strokeWidth="4"/>
+  <line x1="230" y1="130" x2="290" y2="100" stroke="#90A4AE" strokeWidth="4"/>
+  <line x1="110" y1="200" x2="170" y2="170" stroke="#90A4AE" strokeWidth="4"/>
+  <line x1="230" y1="170" x2="290" y2="200" stroke="#90A4AE" strokeWidth="4"/>
+  
+  <!-- Center Icon -->
+  <path d="M180 150 L220 150 M200 130 L200 170" stroke="white" strokeWidth="6"/>
+</svg> 

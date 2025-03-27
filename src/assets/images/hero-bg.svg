@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#1A237E"/>
+  
+  <!-- Stock chart lines -->
+  <path d="M0 540 L384 400 L768 600 L1152 300 L1536 500 L1920 200" 
+        stroke="#4CAF50" strokeWidth="4" fill="none"/>
+  <path d="M0 600 L384 450 L768 650 L1152 350 L1536 550 L1920 250" 
+        stroke="#2196F3" strokeWidth="4" fill="none" opacity="0.6"/>
+  
+  <!-- Grid lines -->
+  <g stroke="#FFFFFF" stroke-opacity="0.1">
+    <line x1="0" y1="200" x2="1920" y2="200"/>
+    <line x1="0" y1="400" x2="1920" y2="400"/>
+    <line x1="0" y1="600" x2="1920" y2="600"/>
+    <line x1="0" y1="800" x2="1920" y2="800"/>
+    <line x1="384" y1="0" x2="384" y2="1080"/>
+    <line x1="768" y1="0" x2="768" y2="1080"/>
+    <line x1="1152" y1="0" x2="1152" y2="1080"/>
+    <line x1="1536" y1="0" x2="1536" y2="1080"/>
+  </g>
+  
+  <!-- Candlesticks -->
+  <g fill="#4CAF50">
+    <rect x="100" y="450" width="20" height="60"/>
+    <rect x="300" y="380" width="20" height="40"/>
+    <rect x="500" y="520" width="20" height="80"/>
+    <rect x="700" y="420" width="20" height="30"/>
+    <rect x="900" y="500" width="20" height="70"/>
+  </g>
+</svg> 

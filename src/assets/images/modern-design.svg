@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#F5F5F5"/>
+  
+  <!-- Design Elements -->
+  <rect x="40" y="40" width="320" height="60" fill="#2196F3" rx="8"/>
+  <rect x="40" y="120" width="150" height="140" fill="#4CAF50" rx="8"/>
+  <rect x="210" y="120" width="150" height="140" fill="#FF9800" rx="8"/>
+  
+  <!-- Decorative Lines -->
+  <line x1="60" y1="70" x2="340" y2="70" stroke="white" strokeWidth="2"/>
+  <line x1="60" y1="190" x2="150" y2="190" stroke="white" strokeWidth="2"/>
+  <line x1="230" y1="190" x2="320" y2="190" stroke="white" strokeWidth="2"/>
+</svg> 

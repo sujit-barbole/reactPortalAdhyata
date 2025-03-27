@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#1E1E1E"/>
+  
+  <!-- Header -->
+  <rect width="800" height="50" fill="#2C2C2C"/>
+  <text x="20" y="32" fill="white" font-family="Arial" font-size="16">Trading Platform</text>
+  
+  <!-- Chart Area -->
+  <rect x="20" y="70" width="500" height="300" fill="#2C2C2C" rx="4"/>
+  <path d="M40 220 L140 180 L240 250 L340 150 L440 200 L500 170" 
+        stroke="#4CAF50" strokeWidth="2" fill="none"/>
+  
+  <!-- Trading Panel -->
+  <rect x="540" y="70" width="240" height="300" fill="#2C2C2C" rx="4"/>
+  <text x="560" y="100" fill="#808080" font-family="Arial" font-size="14">Buy/Sell</text>
+  
+  <!-- Order Book -->
+  <rect x="20" y="390" width="760" height="190" fill="#2C2C2C" rx="4"/>
+  <text x="40" y="420" fill="#808080" font-family="Arial" font-size="14">Order Book</text>
+</svg> 
