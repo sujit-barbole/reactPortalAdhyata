@@ -55,15 +55,57 @@ const HeroSection = styled(Box)(({ theme }: { theme: Theme }) => ({
   padding: theme.spacing(15, 0),
   textAlign: 'center',
   marginTop: '64px', // Height of AppBar
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.2), transparent 50%)',
+    animation: 'pulse 8s ease-in-out infinite',
+  },
+  '@keyframes pulse': {
+    '0%': {
+      transform: 'scale(1)',
+      opacity: 0.5,
+    },
+    '50%': {
+      transform: 'scale(1.1)',
+      opacity: 0.8,
+    },
+    '100%': {
+      transform: 'scale(1)',
+      opacity: 0.5,
+    },
+  },
 }));
 
 const FeatureCard = styled(Card)(({ theme }: { theme: Theme }) => ({
   height: '100%',
   display: 'flex',
   flexDirection: 'column',
-  transition: 'transform 0.3s ease-in-out',
+  transition: 'all 0.3s ease-in-out',
+  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+  backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(255, 255, 255, 0.3)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '4px',
+    background: 'linear-gradient(90deg, #1976d2, #64b5f6)',
+  },
   '&:hover': {
     transform: 'translateY(-8px)',
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
   },
 }));
 
@@ -140,9 +182,47 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <Box>
+    <Box sx={{ 
+      bgcolor: 'background.default',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
+      position: 'relative',
+      overflow: 'hidden',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.1), transparent 50%)',
+        animation: 'pulse 8s ease-in-out infinite',
+      },
+      '@keyframes pulse': {
+        '0%': {
+          transform: 'scale(1)',
+          opacity: 0.5,
+        },
+        '50%': {
+          transform: 'scale(1.1)',
+          opacity: 0.8,
+        },
+        '100%': {
+          transform: 'scale(1)',
+          opacity: 0.5,
+        },
+      },
+    }}>
       {/* Header/Navigation */}
-      <AppBar position="fixed" color="default" elevation={1}>
+      <AppBar 
+        position="fixed" 
+        color="default" 
+        elevation={1}
+        sx={{
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
+        }}
+      >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
             Adhyata
@@ -165,7 +245,7 @@ const HomePage: React.FC = () => {
       <HeroSection>
         <Container>
           <Typography variant="h2" component="h1" gutterBottom>
-            Welcome to Our Platform
+            Welcome to Adhyata
           </Typography>
           <Typography variant="h5" component="h2" gutterBottom>
             The best solution for your needs
@@ -174,8 +254,24 @@ const HomePage: React.FC = () => {
       </HeroSection>
 
       {/* About Us Section */}
-      <Box id="about" sx={{ py: 8, bgcolor: 'background.default' }}>
-        <Container>
+      <Box 
+        id="about" 
+        sx={{ 
+          py: 8, 
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at bottom left, rgba(25, 118, 210, 0.05), transparent 50%)',
+            zIndex: 0,
+          }
+        }}
+      >
+        <Container sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h3" component="h2" align="center" gutterBottom>
             About Us
           </Typography>
@@ -212,8 +308,15 @@ const HomePage: React.FC = () => {
                 alt="About Us"
                 sx={{
                   width: '100%',
+                  maxWidth: '500px',
+                  height: 'auto',
                   borderRadius: 2,
-                  boxShadow: 3,
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  transition: 'transform 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                  },
+                  filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))',
                 }}
               />
             </Grid>
@@ -222,8 +325,24 @@ const HomePage: React.FC = () => {
       </Box>
 
       {/* Features Section */}
-      <Box id="features" sx={{ py: 8, bgcolor: 'background.default' }}>
-        <Container sx={{ py: 8 }}>
+      <Box 
+        id="features" 
+        sx={{ 
+          py: 8, 
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.05), transparent 50%)',
+            zIndex: 0,
+          }
+        }}
+      >
+        <Container sx={{ position: 'relative', zIndex: 1 }}>
           <Typography
             variant="h3"
             component="h2"
@@ -242,6 +361,14 @@ const HomePage: React.FC = () => {
                     height="200"
                     image={feature.image}
                     alt={feature.title}
+                    sx={{
+                      objectFit: 'contain',
+                      p: 2,
+                      transition: 'transform 0.3s ease-in-out',
+                      '&:hover': {
+                        transform: 'scale(1.05)',
+                      },
+                    }}
                   />
                   <CardContent>
                     <Typography gutterBottom variant="h5" component="h3">
@@ -261,12 +388,23 @@ const HomePage: React.FC = () => {
       {/* Call to Action Section */}
       <Box
         sx={{
-          bgcolor: 'grey.100',
           py: 8,
           textAlign: 'center',
+          position: 'relative',
+          background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.1) 0%, rgba(100, 181, 246, 0.1) 100%)',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at center, rgba(25, 118, 210, 0.1), transparent 70%)',
+            zIndex: 0,
+          }
         }}
       >
-        <Container>
+        <Container sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h3" component="h2" gutterBottom>
             Ready to Get Started?
           </Typography>
@@ -286,56 +424,144 @@ const HomePage: React.FC = () => {
       </Box>
 
       {/* Footer with Social Media */}
-      <Box sx={{ bgcolor: 'grey.100', py: 6 }}>
+      <Box 
+        sx={{ 
+          py: 4,
+          position: 'relative',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.3)',
+        }}
+      >
         <Container>
-          <Grid container spacing={4}>
+          <Grid container spacing={3}>
             <Grid item xs={12} md={4}>
-              <Typography variant="h6" color="primary" gutterBottom>
-                Adhyata
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Your trusted partner in online trading.
-                Experience the future of trading today.
-              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
+                  Adhyata
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Your trusted partner in online trading
+                </Typography>
+              </Box>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Typography variant="h6" gutterBottom>
-                Connect With Us
-              </Typography>
-              <Stack direction="row" spacing={2}>
-                <SocialButton aria-label="facebook">
-                  <FacebookIcon />
+              <Stack direction="row" spacing={2} justifyContent="center">
+                <SocialButton size="small" aria-label="facebook">
+                  <FacebookIcon fontSize="small" />
                 </SocialButton>
-                <SocialButton aria-label="twitter">
-                  <TwitterIcon />
+                <SocialButton size="small" aria-label="twitter">
+                  <TwitterIcon fontSize="small" />
                 </SocialButton>
-                <SocialButton aria-label="linkedin">
-                  <LinkedInIcon />
+                <SocialButton size="small" aria-label="linkedin">
+                  <LinkedInIcon fontSize="small" />
                 </SocialButton>
-                <SocialButton aria-label="instagram">
-                  <InstagramIcon />
+                <SocialButton size="small" aria-label="instagram">
+                  <InstagramIcon fontSize="small" />
                 </SocialButton>
               </Stack>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Typography variant="h6" gutterBottom>
-                Quick Links
-              </Typography>
-              <Stack spacing={1}>
-                <Button color="inherit" href="#about">About Us</Button>
-                <Button color="inherit" href="#features">Features</Button>
-                <Button color="inherit" onClick={handleOpenContact}>Contact Us</Button>
-              </Stack>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography 
+                  variant="subtitle2" 
+                  color="primary" 
+                  sx={{ 
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  Quick Links
+                </Typography>
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  <Button 
+                    color="inherit" 
+                    href="#about" 
+                    size="small"
+                    sx={{ 
+                      fontSize: '0.875rem',
+                      textTransform: 'none',
+                      '&:hover': {
+                        color: 'primary.main',
+                      }
+                    }}
+                  >
+                    About Us
+                  </Button>
+                  <Button 
+                    color="inherit" 
+                    href="#features" 
+                    size="small"
+                    sx={{ 
+                      fontSize: '0.875rem',
+                      textTransform: 'none',
+                      '&:hover': {
+                        color: 'primary.main',
+                      }
+                    }}
+                  >
+                    Features
+                  </Button>
+                  <Button 
+                    color="inherit" 
+                    onClick={handleOpenContact} 
+                    size="small"
+                    sx={{ 
+                      fontSize: '0.875rem',
+                      textTransform: 'none',
+                      '&:hover': {
+                        color: 'primary.main',
+                      }
+                    }}
+                  >
+                    Contact
+                  </Button>
+                </Stack>
+              </Box>
             </Grid>
           </Grid>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            align="center" 
+            sx={{ 
+              mt: 3,
+              fontSize: '0.75rem',
+              opacity: 0.8
+            }}
+          >
             © {new Date().getFullYear()} Adhyata. All rights reserved.
           </Typography>
         </Container>
       </Box>
 
       {/* Contact Dialog */}
-      <Dialog open={openContact} onClose={handleCloseContact} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openContact} 
+        onClose={handleCloseContact} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'blur(10px)',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #1976d2, #64b5f6)',
+            },
+          }
+        }}
+      >
         <DialogTitle sx={{ textAlign: 'center', bgcolor: 'primary.main', color: 'white' }}>
           Contact Information
         </DialogTitle>

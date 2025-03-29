@@ -12,8 +12,25 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Paper,
+  InputAdornment,
+  Stepper,
+  Step,
+  StepLabel,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import {
+  CloudUpload as CloudUploadIcon,
+  Person as PersonIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  Lock as LockIcon,
+  School as SchoolIcon,
+  Work as WorkIcon,
+  Badge as BadgeIcon,
+  CreditCard as CardIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon,
+} from '@mui/icons-material';
 
 interface FormData {
   nsimNumber: string;
@@ -21,6 +38,10 @@ interface FormData {
   fullName: string;
   email: string;
   phoneNumber: string;
+  experience: string;
+  education: string;
+  password: string;
+  confirmPassword: string;
 }
 
 const initialFormData: FormData = {
@@ -28,25 +49,47 @@ const initialFormData: FormData = {
   aadhaarNumber: '',
   fullName: '',
   email: '',
-  phoneNumber: ''
+  phoneNumber: '',
+  experience: '',
+  education: '',
+  password: '',
+  confirmPassword: ''
 };
+
+const steps = ['Personal Information', 'Educational Information', 'Document Upload'];
 
 const RegistrationPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const aadhaarFileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedAadhaarFile, setSelectedAadhaarFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [openTerms, setOpenTerms] = useState(false);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [errors, setErrors] = useState({
     aadhaarNumber: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    password: '',
+    confirmPassword: ''
   });
+  const [activeStep, setActiveStep] = useState(0);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size <= 5 * 1024 * 1024) { // 5MB limit
         setSelectedFile(file);
+      } else {
+        alert('File size should not exceed 5MB');
+      }
+    }
+  };
+
+  const handleAadhaarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size <= 5 * 1024 * 1024) { // 5MB limit
+        setSelectedAadhaarFile(file);
       } else {
         alert('File size should not exceed 5MB');
       }
@@ -69,6 +112,32 @@ const RegistrationPage: React.FC = () => {
     }
     if (value && value.length !== 10) {
       return 'Phone number must be exactly 10 digits';
+    }
+    return '';
+  };
+
+  const validatePassword = (password: string) => {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/[a-z]/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    if (!/[!@#$%^&*]/.test(password)) {
+      return 'Password must contain at least one special character (!@#$%^&*)';
+    }
+    return '';
+  };
+
+  const validateConfirmPassword = (password: string, confirmPassword: string) => {
+    if (password !== confirmPassword) {
+      return 'Passwords do not match';
     }
     return '';
   };
@@ -99,32 +168,64 @@ const RegistrationPage: React.FC = () => {
         phoneNumber: validatePhoneNumber(processedValue)
       }));
     }
+
+    // Add password validation
+    if (name === 'password') {
+      const passwordError = validatePassword(value);
+      setErrors(prev => ({
+        ...prev,
+        password: passwordError,
+        confirmPassword: value !== formData.confirmPassword ? 'Passwords do not match' : ''
+      }));
+    } else if (name === 'confirmPassword') {
+      setErrors(prev => ({
+        ...prev,
+        confirmPassword: validateConfirmPassword(formData.password, value)
+      }));
+    }
+  };
+
+  const handleNext = () => {
+    setActiveStep((prevStep) => prevStep + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (activeStep < steps.length - 1) {
+      handleNext();
+      return;
+    }
+
     try {
       // Validate all fields before submission
       const aadhaarError = validateAadhaarNumber(formData.aadhaarNumber);
       const phoneError = validatePhoneNumber(formData.phoneNumber);
+      const passwordError = validatePassword(formData.password);
+      const confirmPasswordError = validateConfirmPassword(formData.password, formData.confirmPassword);
 
       setErrors({
         aadhaarNumber: aadhaarError,
-        phoneNumber: phoneError
+        phoneNumber: phoneError,
+        password: passwordError,
+        confirmPassword: confirmPasswordError
       });
 
-      if (aadhaarError || phoneError) {
+      if (aadhaarError || phoneError || passwordError || confirmPasswordError) {
         return;
       }
 
-      if (!selectedFile) {
-        alert('Please upload a certificate');
+      if (!selectedFile || !selectedAadhaarFile) {
+        alert('Please upload all required documents');
         return;
       }
 
       // Here you would typically send the data to your backend
       console.log('Form Data:', formData);
-      console.log('Selected File:', selectedFile);
+      console.log('Selected Files:', { certificate: selectedFile, aadhaar: selectedAadhaarFile });
       
     } catch (error) {
       console.error('Registration failed:', error);
@@ -198,6 +299,54 @@ const RegistrationPage: React.FC = () => {
     </FormControl>
   );
 
+  const renderAadhaarUpload = () => (
+    <FormControl fullWidth margin="normal">
+      <Box
+        sx={{
+          border: '2px dashed #ccc',
+          borderRadius: 1,
+          p: { xs: 2, sm: 3 },
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: 'action.hover'
+          }
+        }}
+        onClick={() => aadhaarFileInputRef.current?.click()}
+      >
+        <input
+          type="file"
+          ref={aadhaarFileInputRef}
+          hidden
+          accept="image/*,.pdf"
+          onChange={handleAadhaarFileChange}
+        />
+        <CloudUploadIcon 
+          sx={{ 
+            fontSize: { xs: 32, sm: 40 }, 
+            color: 'text.secondary',
+            mb: 1
+          }} 
+        />
+        <Typography variant="body1">
+          {selectedAadhaarFile ? selectedAadhaarFile.name : 'Upload Aadhaar Card'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          PDF, JPG or PNG (Max 5MB)
+        </Typography>
+      </Box>
+      <Button 
+        variant="text" 
+        onClick={() => aadhaarFileInputRef.current?.click()}
+        sx={{ mt: 1 }}
+      >
+        Browse Aadhaar Card
+      </Button>
+    </FormControl>
+  );
+
   const renderPersonalInfo = () => (
     <Grid container spacing={2}>
       <Grid item xs={12} sm={6}>
@@ -209,26 +358,16 @@ const RegistrationPage: React.FC = () => {
           onChange={handleInputChange}
           required
           margin="normal"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <PersonIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
         />
       </Grid>
       <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          label="Email Address"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-        />
-      </Grid>
-    </Grid>
-  );
-
-  const renderContactInfo = () => (
-    <Grid container spacing={2}>
-      <Grid item xs={12}>
         <TextField
           fullWidth
           label="Phone Number"
@@ -240,6 +379,11 @@ const RegistrationPage: React.FC = () => {
           error={!!errors.phoneNumber}
           helperText={errors.phoneNumber || 'Enter 10 digit mobile number'}
           InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <PhoneIcon color="primary" />
+              </InputAdornment>
+            ),
             inputProps: {
               maxLength: 10,
               pattern: '[0-9]*'
@@ -247,8 +391,182 @@ const RegistrationPage: React.FC = () => {
           }}
         />
       </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label="Email Address"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <EmailIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
     </Grid>
   );
+
+  const renderPasswordFields = () => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Password"
+          name="password"
+          type="password"
+          value={formData.password}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          error={!!errors.password}
+          helperText={errors.password || 'At least 8 characters with uppercase, lowercase, number, and special character'}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Confirm Password"
+          name="confirmPassword"
+          type="password"
+          value={formData.confirmPassword}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          error={!!errors.confirmPassword}
+          helperText={errors.confirmPassword}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+    </Grid>
+  );
+
+  const renderEducationAndExperience = () => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Education Qualification"
+          name="education"
+          value={formData.education}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., B.Tech Computer Science"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SchoolIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Years of Experience"
+          name="experience"
+          value={formData.experience}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., 5 years in IT sector"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <WorkIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+    </Grid>
+  );
+
+  const renderStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <>
+            {renderPersonalInfo()}
+            {renderPasswordFields()}
+          </>
+        );
+      case 1:
+        return (
+          <>
+            {renderEducationAndExperience()}
+            <TextField
+              fullWidth
+              label="Aadhaar Number"
+              name="aadhaarNumber"
+              value={formData.aadhaarNumber}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              error={!!errors.aadhaarNumber}
+              helperText={errors.aadhaarNumber || 'Your Aadhaar number will be verified via OTP'}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CardIcon color="primary" />
+                  </InputAdornment>
+                ),
+                inputProps: {
+                  maxLength: 12,
+                  pattern: '[0-9]*'
+                }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="NSIM Number"
+              name="nsimNumber"
+              value={formData.nsimNumber}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <BadgeIcon color="primary" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </>
+        );
+      case 2:
+        return (
+          <>
+            {renderAadhaarUpload()}
+            {renderFileUpload()}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
   const renderTermsDialog = () => (
     <Dialog 
@@ -256,13 +574,17 @@ const RegistrationPage: React.FC = () => {
       onClose={handleCloseTerms}
       maxWidth="md"
       fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+        }
+      }}
     >
-      <DialogTitle sx={{ 
-        bgcolor: 'primary.main', 
-        color: 'white',
-        py: 2
-      }}>
-        Terms of Service
+      <DialogTitle>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Terms of Service
+        </Typography>
       </DialogTitle>
       <DialogContent sx={{ py: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -301,7 +623,14 @@ const RegistrationPage: React.FC = () => {
         </Typography>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
-        <Button onClick={handleCloseTerms} variant="contained">
+        <Button 
+          onClick={handleCloseTerms}
+          variant="contained"
+          sx={{ 
+            textTransform: 'none',
+            borderRadius: 1,
+          }}
+        >
           Close
         </Button>
       </DialogActions>
@@ -314,13 +643,17 @@ const RegistrationPage: React.FC = () => {
       onClose={handleClosePrivacy}
       maxWidth="md"
       fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+        }
+      }}
     >
-      <DialogTitle sx={{ 
-        bgcolor: 'primary.main', 
-        color: 'white',
-        py: 2
-      }}>
-        Privacy Policy
+      <DialogTitle>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Privacy Policy
+        </Typography>
       </DialogTitle>
       <DialogContent sx={{ py: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -359,7 +692,14 @@ const RegistrationPage: React.FC = () => {
         </Typography>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
-        <Button onClick={handleClosePrivacy} variant="contained">
+        <Button 
+          onClick={handleClosePrivacy}
+          variant="contained"
+          sx={{ 
+            textTransform: 'none',
+            borderRadius: 1,
+          }}
+        >
           Close
         </Button>
       </DialogActions>
@@ -374,136 +714,255 @@ const RegistrationPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         py: { xs: 4, sm: 6, md: 8 },
-        bgcolor: 'background.default'
+        bgcolor: 'background.default',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.1), transparent 50%)',
+          animation: 'pulse 8s ease-in-out infinite',
+        },
+        '@keyframes pulse': {
+          '0%': {
+            transform: 'scale(1)',
+            opacity: 0.5,
+          },
+          '50%': {
+            transform: 'scale(1.1)',
+            opacity: 0.8,
+          },
+          '100%': {
+            transform: 'scale(1)',
+            opacity: 0.5,
+          },
+        },
       }}
     >
-      <Container maxWidth="sm">
-        <Box 
+      <Container maxWidth="md">
+        <Paper 
           component="form" 
           onSubmit={handleRegisterSubmit}
+          elevation={3}
           sx={{ 
             width: '100%',
-            p: { xs: 2, sm: 3, md: 4 },
+            p: { xs: 3, sm: 4, md: 5 },
             borderRadius: 2,
             bgcolor: 'background.paper',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.1)'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'blur(10px)',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #1976d2, #64b5f6)',
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '100px',
+              height: '100px',
+              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.1) 0%, transparent 70%)',
+              transform: 'translate(50%, -50%)',
+              borderRadius: '50%',
+              animation: 'float 6s ease-in-out infinite',
+            },
+            '@keyframes float': {
+              '0%': {
+                transform: 'translate(50%, -50%) scale(1)',
+              },
+              '50%': {
+                transform: 'translate(50%, -50%) scale(1.2)',
+              },
+              '100%': {
+                transform: 'translate(50%, -50%) scale(1)',
+              },
+            },
           }}
         >
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            align="center"
-            sx={{ 
-              fontWeight: 'bold',
-              mb: 4,
-              fontSize: { xs: '1.75rem', sm: '2rem', md: '2.25rem' }
-            }}
-          >
-            Register as Trusted Associate
-          </Typography>
-
-          <TextField
-            fullWidth
-            label="NSIM Number"
-            name="nsimNumber"
-            value={formData.nsimNumber}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-          />
-
-          {renderFileUpload()}
-
-          <TextField
-            fullWidth
-            label="Aadhaar Number"
-            name="aadhaarNumber"
-            value={formData.aadhaarNumber}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-            error={!!errors.aadhaarNumber}
-            helperText={errors.aadhaarNumber || 'Your Aadhaar number will be verified via OTP'}
-            InputProps={{
-              inputProps: {
-                maxLength: 12,
-                pattern: '[0-9]*'
-              }
-            }}
-          />
-
-          {renderPersonalInfo()}
-          {renderContactInfo()}
-
-          <Button 
-            type="submit"
-            variant="contained" 
-            fullWidth 
-            size="large"
-            sx={{
-              mt: 4,
-              mb: 2,
-              py: { xs: 1.5, sm: 2 },
-              fontSize: { xs: '0.9rem', sm: '1rem' },
-              textTransform: 'none',
-              borderRadius: 1,
-              boxShadow: 2
-            }}
-          >
-            Register
-          </Button>
-
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            align="center"
-            sx={{ 
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              mb: 2
-            }}
-          >
-            Already have an account?{' '}
-            <Link 
-              href="/login" 
-              color="primary" 
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            mb: 4,
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '120px',
+              height: '120px',
+              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.05) 0%, transparent 70%)',
+              borderRadius: '50%',
+              zIndex: -1,
+            }
+          }}>
+            <PersonIcon 
               sx={{ 
-                textDecoration: 'none',
-                fontWeight: 500,
-                '&:hover': {
-                  textDecoration: 'underline'
-                }
+                fontSize: 48, 
+                color: 'primary.main',
+                mb: 2,
+                animation: 'bounce 2s ease-in-out infinite',
+              }} 
+            />
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              align="center"
+              sx={{ 
+                fontWeight: 'bold',
+                color: 'primary.main',
+                fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                width: '100%',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
             >
-                LogIn here
-            </Link>
-          </Typography>
+              Register as Trusted Associate
+            </Typography>
+            <Typography 
+              variant="subtitle1" 
+              color="text.secondary" 
+              align="center"
+              sx={{ mt: 1 }}
+            >
+              Please fill in your details to create an account
+            </Typography>
+          </Box>
 
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            align="center"
-            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+          <Stepper 
+            activeStep={activeStep} 
+            sx={{ 
+              mb: 4,
+              '& .MuiStepLabel-label': {
+                color: 'text.secondary',
+                '&.Mui-active': {
+                  color: 'primary.main',
+                },
+                '&.Mui-completed': {
+                  color: 'primary.main',
+                },
+              },
+            }}
           >
-            By registering, you agree to our{' '}
-            <Link 
-              href="#" 
-              color="primary" 
-              sx={{ textDecoration: 'none' }}
-              onClick={handleOpenTerms}
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {renderStepContent(activeStep)}
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button
+              onClick={handleBack}
+              disabled={activeStep === 0}
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1,
+              }}
             >
-              Terms of Service
-            </Link>
-            {' '}and{' '}
-            <Link 
-              href="#" 
-              color="primary" 
-              sx={{ textDecoration: 'none' }}
-              onClick={handleOpenPrivacy}
+              Back
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              endIcon={activeStep === steps.length - 1 ? null : <ArrowForwardIcon />}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1,
+              }}
             >
-              Privacy Policy
-            </Link>
-          </Typography>
-        </Box>
+              {activeStep === steps.length - 1 ? 'Register' : 'Next'}
+            </Button>
+          </Box>
+
+          {activeStep === 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
+                Already have an account?{' '}
+                <Link 
+                  href="/login" 
+                  color="primary" 
+                  sx={{ 
+                    textDecoration: 'none',
+                    fontWeight: 500,
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  Login here
+                </Link>
+              </Typography>
+            </Box>
+          )}
+
+          {activeStep === steps.length - 1 && (
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              align="center"
+              sx={{ mt: 2, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+            >
+              By registering, you agree to our{' '}
+              <Link 
+                href="#" 
+                color="primary" 
+                sx={{ 
+                  textDecoration: 'none',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+                onClick={handleOpenTerms}
+              >
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link 
+                href="#" 
+                color="primary" 
+                sx={{ 
+                  textDecoration: 'none',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+                onClick={handleOpenPrivacy}
+              >
+                Privacy Policy
+              </Link>
+            </Typography>
+          )}
+        </Paper>
       </Container>
 
       {renderTermsDialog()}
