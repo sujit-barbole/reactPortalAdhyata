@@ -13,6 +13,12 @@ import TADashboard from './pages/TADashboard';
 import CallHistory from './pages/CallHistory';
 import Reconciliation from './pages/Reconciliation';
 import TAProfile from './pages/TAProfile';
+import BucketManagementPage from './pages/BucketManagementPage';
+import StockListPage from './pages/StockListPage';
+import NonVerifiedTADashboard from './pages/NonVerifiedTADashboard';
+import NonVerifiedTAProfile from './pages/NonVerifiedTAProfile';
+import SubmitStudy from './pages/SubmitStudy';
+import StudyHistory from './pages/StudyHistory';
 // Create a theme instance
 const theme = createTheme({
   palette: {
@@ -42,6 +48,12 @@ const App: React.FC = () => {
           <Route path="/callhistory" element={<CallHistory />} />
           <Route path="/reconciliation" element={<Reconciliation />} />
           <Route path="/taprofile" element={<TAProfile />} />
+          <Route path="/bucket-management" element={<BucketManagementPage />} />
+          <Route path="/stocklist" element={<StockListPage />} />
+          <Route path="/nonverifiedtadashboard" element={<NonVerifiedTADashboard />} />
+          <Route path="/nonverifiedtaprofile" element={<NonVerifiedTAProfile />} />
+          <Route path="/submit-study" element={<SubmitStudy />} />
+          <Route path="/study-history" element={<StudyHistory />} />
         </Routes>
       </Router>
     </ThemeProvider>

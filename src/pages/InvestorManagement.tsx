@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Box,
   Container,
@@ -27,6 +27,7 @@ import {
   InputLabel,
   Checkbox,
   InputAdornment,
+  Divider,
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
@@ -49,12 +50,11 @@ interface Investor {
   phone: string;
   accountNumber: string;
   balance: number;
-  status: 'Active' | 'Inactive';
   joinedDate: string;
   lastTransaction: string;
   totalInvested: number;
-  currentValue: number;
-  profitLoss: number;
+  totalAmount: number;
+  toBeInvested: number;
   initials: string;
 }
 
@@ -64,7 +64,6 @@ const InvestorManagement: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [uploadStats, setUploadStats] = useState({ filename: '', recordsProcessed: 0 });
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -79,12 +78,11 @@ const InvestorManagement: React.FC = () => {
       phone: '+91 98765 43210',
       accountNumber: 'ACC-001',
       balance: 250000,
-      status: 'Active',
       joinedDate: 'Jan 15, 2024',
       lastTransaction: 'Mar 20, 2024',
       totalInvested: 500000,
-      currentValue: 575000,
-      profitLoss: 75000,
+      totalAmount: 575000,
+      toBeInvested: 75000,
       initials: 'RS'
     },
     {
@@ -94,12 +92,11 @@ const InvestorManagement: React.FC = () => {
       phone: '+91 98765 43211',
       accountNumber: 'ACC-002',
       balance: 150000,
-      status: 'Active',
       joinedDate: 'Feb 1, 2024',
       lastTransaction: 'Mar 19, 2024',
       totalInvested: 300000,
-      currentValue: 315000,
-      profitLoss: 15000,
+      totalAmount: 315000,
+      toBeInvested: 15000,
       initials: 'PP'
     },
     {
@@ -109,25 +106,25 @@ const InvestorManagement: React.FC = () => {
       phone: '+91 98765 43212',
       accountNumber: 'ACC-003',
       balance: 0,
-      status: 'Inactive',
       joinedDate: 'Mar 15, 2024',
       lastTransaction: '-',
       totalInvested: 0,
-      currentValue: 0,
-      profitLoss: 0,
+      totalAmount: 0,
+      toBeInvested: 0,
       initials: 'AK'
     }
   ]);
   const navigate = useNavigate();
-  const [highlightedCard, setHighlightedCard] = useState<'total' | 'active' | 'balance' | 'pl' | null>(null);
+  const [highlightedCard, setHighlightedCard] = useState<'totalAmount' | 'investedAmount' | 'toBeInvested' | 'total' | null>(null);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [uploadType, setUploadType] = useState<'investor' | 'traded' | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getInvestorStats = () => {
     return {
       total: investors.length,
-      active: investors.filter(inv => inv.status === 'Active').length,
-      inactive: investors.filter(inv => inv.status === 'Inactive').length,
       totalBalance: investors.reduce((sum, inv) => sum + inv.balance, 0),
-      totalProfitLoss: investors.reduce((sum, inv) => sum + inv.profitLoss, 0)
+      totalAmount: investors.reduce((sum, inv) => sum + inv.totalAmount, 0)
     };
   };
 
@@ -171,11 +168,6 @@ const InvestorManagement: React.FC = () => {
 
   const getFilteredInvestors = () => {
     let filtered = investors;
-    
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(inv => inv.status === statusFilter);
-    }
     
     // Apply search filter
     if (searchQuery) {
@@ -246,6 +238,7 @@ const InvestorManagement: React.FC = () => {
         });
         setIsSuccess(true);
         setIsUploadModalOpen(false); // Close the modal on success
+        setIsConfirmDialogOpen(false); // Close confirmation dialog
       } catch (error) {
         setStatus(`Error: ${error instanceof Error ? error.message : 'Upload failed'}`);
       }
@@ -280,22 +273,8 @@ const InvestorManagement: React.FC = () => {
     }
   };
 
-  const handleCardClick = (cardType: 'total' | 'active' | 'balance' | 'pl') => {
+  const handleCardClick = (cardType: 'totalAmount' | 'investedAmount' | 'toBeInvested' | 'total') => {
     setHighlightedCard(cardType);
-    switch (cardType) {
-      case 'total':
-        setStatusFilter('all');
-        break;
-      case 'active':
-        setStatusFilter('Active');
-        break;
-      case 'balance':
-        setStatusFilter('Inactive');
-        break;
-      case 'pl':
-        setStatusFilter('all');
-        break;
-    }
   };
 
   const successContent = (
@@ -409,7 +388,7 @@ const InvestorManagement: React.FC = () => {
               }
             }}
           >
-            <input {...getInputProps()} />
+            <input {...getInputProps()} ref={fileInputRef} />
             <IconButton
               sx={{
                 width: 80,
@@ -436,11 +415,7 @@ const InvestorManagement: React.FC = () => {
               variant="contained"
               color="primary"
               sx={{ mt: 2 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                const input = document.querySelector('input');
-                if (input) input.click();
-              }}
+              onClick={() => fileInputRef.current?.click()}
             >
               Browse Files
             </Button>
@@ -454,9 +429,9 @@ const InvestorManagement: React.FC = () => {
             color="primary"
             sx={{ mt: 4, px: 4, py: 1.5 }}
             disabled={!file}
-            onClick={handleUpload}
+            onClick={() => setIsConfirmDialogOpen(true)}
           >
-            Upload Investor Data
+            Send
           </Button>
         </Paper>
 
@@ -517,16 +492,19 @@ const InvestorManagement: React.FC = () => {
             variant="contained"
             color="primary"
             startIcon={<CloudUploadIcon />}
-            onClick={() => setIsUploadModalOpen(true)}
+            onClick={() => {
+              setUploadType('investor');
+              setIsUploadModalOpen(true);
+            }}
           >
             Upload Investor Data
           </Button>
         </Box>
 
         {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
+        <Grid container spacing={3} sx={{ mb: 8 }}>
           {/* Total Investors */}
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper 
               sx={{ 
                 p: 3, 
@@ -554,8 +532,8 @@ const InvestorManagement: React.FC = () => {
             </Paper>
           </Grid>
 
-          {/* Active Investors */}
-          <Grid item xs={12} md={6} lg={3}>
+          {/* Total Amount */}
+          <Grid item xs={12} sm={6} md={3}>
             <Paper 
               sx={{ 
                 p: 3, 
@@ -563,57 +541,28 @@ const InvestorManagement: React.FC = () => {
                 flexDirection: 'column', 
                 height: 140,
                 cursor: 'pointer',
-                bgcolor: highlightedCard === 'active' ? 'success.light' : 'inherit',
+                bgcolor: highlightedCard === 'totalAmount' ? 'success.light' : 'inherit',
                 '&:hover': { bgcolor: 'action.hover' }
               }}
-              onClick={() => handleCardClick('active')}
+              onClick={() => handleCardClick('totalAmount')}
             >
               <Box display="flex" alignItems="center" mb={2}>
                 <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
-                  <CheckCircleIcon />
-                </Avatar>
-                <Typography variant="h6">Active</Typography>
-              </Box>
-              <Typography variant="h3" component="div" gutterBottom>
-                {stats.active}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Active accounts
-              </Typography>
-            </Paper>
-          </Grid>
-
-          {/* Total Balance */}
-          <Grid item xs={12} md={6} lg={3}>
-            <Paper 
-              sx={{ 
-                p: 3, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                height: 140,
-                cursor: 'pointer',
-                bgcolor: highlightedCard === 'balance' ? 'error.light' : 'inherit',
-                '&:hover': { bgcolor: 'action.hover' }
-              }}
-              onClick={() => handleCardClick('balance')}
-            >
-              <Box display="flex" alignItems="center" mb={2}>
-                <Avatar sx={{ bgcolor: 'error.main', mr: 2 }}>
                   <AccountBalanceIcon />
                 </Avatar>
-                <Typography variant="h6">Total Balance</Typography>
+                <Typography variant="h6">Total Amount</Typography>
               </Box>
               <Typography variant="h3" component="div" gutterBottom>
-                ₹{stats.totalBalance.toLocaleString()}
+                ₹{stats.totalAmount.toLocaleString()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Current balance
+                Overall amount
               </Typography>
             </Paper>
           </Grid>
 
-          {/* Total P/L */}
-          <Grid item xs={12} md={6} lg={3}>
+          {/* Invested Amount */}
+          <Grid item xs={12} sm={6} md={3}>
             <Paper 
               sx={{ 
                 p: 3, 
@@ -621,32 +570,61 @@ const InvestorManagement: React.FC = () => {
                 flexDirection: 'column', 
                 height: 140,
                 cursor: 'pointer',
-                bgcolor: highlightedCard === 'pl' ? 'warning.light' : 'inherit',
+                bgcolor: highlightedCard === 'investedAmount' ? 'warning.light' : 'inherit',
                 '&:hover': { bgcolor: 'action.hover' }
               }}
-              onClick={() => handleCardClick('pl')}
+              onClick={() => handleCardClick('investedAmount')}
             >
               <Box display="flex" alignItems="center" mb={2}>
                 <Avatar sx={{ bgcolor: 'warning.main', mr: 2 }}>
                   <AccountBalanceIcon />
                 </Avatar>
-                <Typography variant="h6">Total P/L</Typography>
+                <Typography variant="h6">Invested Amount</Typography>
               </Box>
               <Typography variant="h3" component="div" gutterBottom>
-                ₹{stats.totalProfitLoss.toLocaleString()}
+                ₹{investors.reduce((sum, inv) => sum + inv.totalInvested, 0).toLocaleString()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Overall profit/loss
+                Total invested
+              </Typography>
+            </Paper>
+          </Grid>
+
+          {/* To be Invested */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper 
+              sx={{ 
+                p: 3, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                height: 140,
+                cursor: 'pointer',
+                bgcolor: highlightedCard === 'toBeInvested' ? 'error.light' : 'inherit',
+                '&:hover': { bgcolor: 'action.hover' }
+              }}
+              onClick={() => handleCardClick('toBeInvested')}
+            >
+              <Box display="flex" alignItems="center" mb={2}>
+                <Avatar sx={{ bgcolor: 'error.main', mr: 2 }}>
+                  <AccountBalanceIcon />
+                </Avatar>
+                <Typography variant="h6">To be Invested</Typography>
+              </Box>
+              <Typography variant="h3" component="div" gutterBottom>
+                ₹{investors.reduce((sum, inv) => sum + inv.toBeInvested, 0).toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Pending investment
               </Typography>
             </Paper>
           </Grid>
         </Grid>
 
         {/* Investors Table */}
-        <Box sx={{ mt: 6 }}>
+        <Box sx={{ mt: 8 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" component="h2">
-              {statusFilter === 'all' ? 'All Investors' : `${statusFilter} Investors`}
+              All Investors
             </Typography>
             
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -664,27 +642,16 @@ const InvestorManagement: React.FC = () => {
                   ),
                 }}
               />
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'Active' | 'Inactive')}
-                  sx={{ height: 40 }}
-                >
-                  <MenuItem value="all">All Status</MenuItem>
-                  <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Inactive">Inactive</MenuItem>
-                </Select>
-              </FormControl>
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={<EmailIcon />}
-                onClick={handleSendEmailToAll}
-                disabled={isSendingEmail}
+                startIcon={<CloudUploadIcon />}
+                onClick={() => {
+                  setUploadType('traded');
+                  setIsUploadModalOpen(true);
+                }}
               >
-                {isSendingEmail ? 'Sending...' : 'Send Email to All'}
+                Upload Traded Investor Data
               </Button>
             </Box>
           </Box>
@@ -694,26 +661,11 @@ const InvestorManagement: React.FC = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>
-                  <TableCell>Account</TableCell>
-                  <TableCell>Balance</TableCell>
-                  <TableCell>Total Invested</TableCell>
-                  <TableCell>Current Value</TableCell>
-                  <TableCell>P/L</TableCell>
-                  <TableCell>Status</TableCell>
+                  <TableCell>Account Id</TableCell>
+                  <TableCell>Total Amount</TableCell>
+                  <TableCell>Invested Amount</TableCell>
+                  <TableCell>To be Invested</TableCell>
                   <TableCell>Actions</TableCell>
-                  <TableCell padding="checkbox" align="center">
-                    <Checkbox
-                      checked={getFilteredInvestors().length > 0 && selectedInvestors.length === getFilteredInvestors().length}
-                      indeterminate={selectedInvestors.length > 0 && selectedInvestors.length < getFilteredInvestors().length}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedInvestors(getFilteredInvestors().map(inv => inv.id));
-                        } else {
-                          setSelectedInvestors([]);
-                        }
-                      }}
-                    />
-                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -726,38 +678,13 @@ const InvestorManagement: React.FC = () => {
                         </Avatar>
                         <Box>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>{investor.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {investor.email}
-                          </Typography>
                         </Box>
                       </Box>
                     </TableCell>
                     <TableCell>{investor.accountNumber}</TableCell>
-                    <TableCell>₹{investor.balance.toLocaleString()}</TableCell>
+                    <TableCell>₹{investor.totalAmount.toLocaleString()}</TableCell>
                     <TableCell>₹{investor.totalInvested.toLocaleString()}</TableCell>
-                    <TableCell>₹{investor.currentValue.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: investor.profitLoss >= 0 ? 'success.main' : 'error.main',
-                          fontWeight: 500
-                        }}
-                      >
-                        ₹{investor.profitLoss.toLocaleString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={investor.status}
-                        color={
-                          investor.status === 'Active' ? 'success' : 'error'
-                        }
-                        size="small"
-                        variant="outlined"
-                        sx={{ fontWeight: 500 }}
-                      />
-                    </TableCell>
+                    <TableCell>₹{investor.toBeInvested.toLocaleString()}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Tooltip title="View Details">
@@ -786,26 +713,7 @@ const InvestorManagement: React.FC = () => {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Send Email">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleSendEmail(investor)}
-                            sx={{ 
-                              bgcolor: 'info.main',
-                              color: 'white',
-                              '&:hover': { bgcolor: 'info.dark' },
-                            }}
-                          >
-                            <EmailIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
                       </Box>
-                    </TableCell>
-                    <TableCell padding="checkbox" align="center">
-                      <Checkbox
-                        checked={selectedInvestors.includes(investor.id)}
-                        onChange={() => handleSelectInvestor(investor.id)}
-                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -837,104 +745,94 @@ const InvestorManagement: React.FC = () => {
       >
         {selectedInvestor && (
           <>
-            <DialogTitle>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.light' }}>
-                    {selectedInvestor.initials}
-                  </Avatar>
-                  <Typography variant="h6">
-                    Investor Details - {selectedInvestor.name}
-                  </Typography>
-                </Box>
+            <DialogTitle sx={{ 
+              bgcolor: 'primary.main',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              py: 2
+            }}>
+              <Avatar sx={{ width: 40, height: 40, bgcolor: 'white', color: 'primary.main' }}>
+                {selectedInvestor.initials}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                  {selectedInvestor.name}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Investor Details
+                </Typography>
               </Box>
             </DialogTitle>
-            <DialogContent>
-              <Grid container spacing={3} sx={{ mt: 1 }}>
+            <DialogContent sx={{ mt: 3 }}>
+              <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <Paper sx={{ p: 2 }}>
-                    <Grid container spacing={2}>
+                  <Paper sx={{ p: 3, bgcolor: 'grey.50' }}>
+                    <Grid container spacing={3}>
                       <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Email
-                        </Typography>
-                        <Typography variant="body1">{selectedInvestor.email}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Phone
-                        </Typography>
-                        <Typography variant="body1">{selectedInvestor.phone}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Account Number
-                        </Typography>
-                        <Typography variant="body1">{selectedInvestor.accountNumber}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Status
-                        </Typography>
-                        <Chip 
-                          label={selectedInvestor.status}
-                          color={
-                            selectedInvestor.status === 'Active' ? 'success' : 'error'
-                          }
-                          size="small"
-                          sx={{ mt: 1 }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Joined Date
-                        </Typography>
-                        <Typography variant="body1">{selectedInvestor.joinedDate}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Last Transaction
-                        </Typography>
-                        <Typography variant="body1">{selectedInvestor.lastTransaction}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Balance
-                        </Typography>
-                        <Typography variant="body1">₹{selectedInvestor.balance.toLocaleString()}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Total Invested
-                        </Typography>
-                        <Typography variant="body1">₹{selectedInvestor.totalInvested.toLocaleString()}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Current Value
-                        </Typography>
-                        <Typography variant="body1">₹{selectedInvestor.currentValue.toLocaleString()}</Typography>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Email
+                          </Typography>
+                          <Typography variant="body1">{selectedInvestor.email}</Typography>
+                        </Box>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Phone
+                          </Typography>
+                          <Typography variant="body1">{selectedInvestor.phone}</Typography>
+                        </Box>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Account Number
+                          </Typography>
+                          <Typography variant="body1">{selectedInvestor.accountNumber}</Typography>
+                        </Box>
                       </Grid>
                       <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Profit/Loss
-                        </Typography>
-                        <Typography 
-                          variant="body1"
-                          sx={{ 
-                            color: selectedInvestor.profitLoss >= 0 ? 'success.main' : 'error.main',
-                            fontWeight: 500
-                          }}
-                        >
-                          ₹{selectedInvestor.profitLoss.toLocaleString()}
-                        </Typography>
+                        <Divider sx={{ my: 2 }} />
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={4}>
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Total Invested
+                              </Typography>
+                              <Typography variant="h6">₹{selectedInvestor.totalInvested.toLocaleString()}</Typography>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Total Amount
+                              </Typography>
+                              <Typography variant="h6">₹{selectedInvestor.totalAmount.toLocaleString()}</Typography>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                To be Invested
+                              </Typography>
+                              <Typography 
+                                variant="h6"
+                                sx={{ 
+                                  color: selectedInvestor.toBeInvested >= 0 ? 'success.main' : 'error.main',
+                                  fontWeight: 500
+                                }}
+                              >
+                                ₹{selectedInvestor.toBeInvested.toLocaleString()}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        </Grid>
                       </Grid>
                     </Grid>
                   </Paper>
                 </Grid>
               </Grid>
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
               <Button onClick={handleCloseModal}>Close</Button>
             </DialogActions>
           </>
@@ -950,12 +848,27 @@ const InvestorManagement: React.FC = () => {
       >
         {selectedInvestor && (
           <>
-            <DialogTitle>
-              <Typography variant="h6">
-                Edit Investor - {selectedInvestor.name}
-              </Typography>
+            <DialogTitle sx={{ 
+              bgcolor: 'primary.main',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              py: 2
+            }}>
+              <Avatar sx={{ width: 40, height: 40, bgcolor: 'white', color: 'primary.main' }}>
+                {selectedInvestor.initials}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                  {selectedInvestor.name}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Edit Investor Details
+                </Typography>
+              </Box>
             </DialogTitle>
-            <DialogContent>
+            <DialogContent sx={{ mt: 3 }}>
               <Box component="form" sx={{ mt: 2 }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
@@ -992,25 +905,65 @@ const InvestorManagement: React.FC = () => {
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>Status</InputLabel>
-                      <Select
-                        value={selectedInvestor.status}
-                        label="Status"
-                        onChange={(e) => setSelectedInvestor({
-                          ...selectedInvestor,
-                          status: e.target.value as 'Active' | 'Inactive'
-                        })}
-                      >
-                        <MenuItem value="Active">Active</MenuItem>
-                        <MenuItem value="Inactive">Inactive</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <TextField
+                      fullWidth
+                      label="Account ID"
+                      value={selectedInvestor.accountNumber}
+                      onChange={(e) => setSelectedInvestor({
+                        ...selectedInvestor,
+                        accountNumber: e.target.value
+                      })}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Total Amount"
+                      type="number"
+                      value={selectedInvestor.totalAmount}
+                      onChange={(e) => setSelectedInvestor({
+                        ...selectedInvestor,
+                        totalAmount: Number(e.target.value)
+                      })}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Invested Amount"
+                      type="number"
+                      value={selectedInvestor.totalInvested}
+                      onChange={(e) => setSelectedInvestor({
+                        ...selectedInvestor,
+                        totalInvested: Number(e.target.value)
+                      })}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="To be Invested"
+                      type="number"
+                      value={selectedInvestor.toBeInvested}
+                      onChange={(e) => setSelectedInvestor({
+                        ...selectedInvestor,
+                        toBeInvested: Number(e.target.value)
+                      })}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
               <Button onClick={() => setIsEditModalOpen(false)}>
                 Cancel
               </Button>
@@ -1033,6 +986,7 @@ const InvestorManagement: React.FC = () => {
           setIsUploadModalOpen(false);
           setFile(null);
           setStatus('Ready to upload');
+          setUploadType(null);
         }}
         maxWidth="md"
         fullWidth
@@ -1057,7 +1011,7 @@ const InvestorManagement: React.FC = () => {
                 }
               }}
             >
-              <input {...getInputProps()} />
+              <input {...getInputProps()} ref={fileInputRef} />
               <IconButton
                 sx={{
                   width: 60,
@@ -1084,11 +1038,7 @@ const InvestorManagement: React.FC = () => {
                 variant="contained"
                 color="primary"
                 sx={{ mt: 2 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const input = document.querySelector('input');
-                  if (input) input.click();
-                }}
+                onClick={() => fileInputRef.current?.click()}
               >
                 Browse Files
               </Button>
@@ -1111,6 +1061,7 @@ const InvestorManagement: React.FC = () => {
               setIsUploadModalOpen(false);
               setFile(null);
               setStatus('Ready to upload');
+              setUploadType(null);
             }}
           >
             Cancel
@@ -1119,9 +1070,46 @@ const InvestorManagement: React.FC = () => {
             variant="contained"
             color="primary"
             disabled={!file}
+            onClick={() => setIsConfirmDialogOpen(true)}
+          >
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={isConfirmDialogOpen}
+        onClose={() => {
+          setIsConfirmDialogOpen(false);
+          setUploadType(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6">Confirm</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mt: 2 }}>
+            {uploadType === 'investor' 
+              ? 'Are you sure you want to upload investor data? This will be used for investing.'
+              : 'Are you sure you want to upload traded investor data? This will send emails to all the investors.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setIsConfirmDialogOpen(false);
+            setUploadType(null);
+          }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
             onClick={handleUpload}
           >
-            Upload
+            Confirm & Send
           </Button>
         </DialogActions>
       </Dialog>
@@ -1154,11 +1142,13 @@ const InvestorManagement: React.FC = () => {
             </Box>
 
             <Typography variant="h5" color="#4caf50" gutterBottom>
-              Upload Successful
+              Successful
             </Typography>
 
             <Typography variant="body1" color="text.secondary" gutterBottom align="center">
-              Your investor data has been validated and stored successfully
+              {uploadType === 'investor' 
+                ? 'Investor data has been successfully uploaded and processed.'
+                : 'Traded investor data has been successfully uploaded and emails have been sent to all investors.'}
             </Typography>
 
             <Box sx={{ 
@@ -1195,4 +1185,4 @@ const InvestorManagement: React.FC = () => {
   );
 };
 
-export default InvestorManagement;
+export default InvestorManagement; 

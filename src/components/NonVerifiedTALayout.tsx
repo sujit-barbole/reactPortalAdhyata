@@ -8,48 +8,54 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
   Person as ProfileIcon,
   Logout as LogoutIcon,
-  Group as TAManagementIcon,
-  Business as InvestorManagementIcon,
-  TrendingUp as StockCallsIcon,
-  Category as BucketManagementIcon,
-  List as StockListIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 const DRAWER_WIDTH = 240;
 
-interface AdminLayoutProps {
+interface NonVerifiedTALayoutProps {
   children: React.ReactNode;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
+const NonVerifiedTALayout: React.FC<NonVerifiedTALayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const [openLogoutDialog, setOpenLogoutDialog] = React.useState(false);
+
+  const handleLogout = () => {
+    // Here you would typically clear any authentication tokens or user data
+    setOpenLogoutDialog(false);
+    navigate('/');
+  };
 
   const sidebarItems = [
     { text: 'MAIN', type: 'header' },
-    { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admindashboard' },
-    { text: 'TA Management', icon: <TAManagementIcon />, path: '/tamanagement' },
-    { text: 'Stock Calls', icon: <StockCallsIcon />, path: '/stock-calls' },
-    { text: 'Stock List', icon: <StockListIcon />, path: '/stocklist' },
-    { text: 'Bucket Management', icon: <BucketManagementIcon />, path: '/bucket-management' },
-    { text: 'Investor Management', icon: <InvestorManagementIcon />, path: '/investormanagement' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/nonverifiedtadashboard' },
     { text: 'ACCOUNT', type: 'header' },
-    { text: 'Logout', icon: <LogoutIcon />, path: '/' },
+    { text: 'Profile', icon: <ProfileIcon />, path: '/nonverifiedtaprofile' },
+    { text: 'Logout', icon: <LogoutIcon />, path: '#' },
   ];
 
   const handleNavigation = (path: string) => {
-    navigate(path);
+    if (path === '#') {
+      setOpenLogoutDialog(true);
+    } else {
+      navigate(path);
+    }
   };
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* Sidebar */}
       <Drawer
         variant="permanent"
         sx={{
@@ -63,7 +69,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           },
         }}
       >
-        {/* Logo/Brand */}
         <Box 
           sx={{ 
             p: 2, 
@@ -80,7 +85,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </Typography>
         </Box>
 
-        {/* Navigation Items */}
         <List>
           {sidebarItems.map((item) => (
             item.type === 'header' ? (
@@ -94,7 +98,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             ) : (
               <ListItem key={item.text} disablePadding>
                 <ListItemButton
-                  onClick={() => item.path && handleNavigation(item.path)}
+                  onClick={() => handleNavigation(item.path || '')}
                   sx={{
                     px: 3,
                     py: 1,
@@ -112,7 +116,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </List>
       </Drawer>
 
-      {/* Main Content */}
       <Box
         component="main"
         sx={{
@@ -123,8 +126,31 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       >
         {children}
       </Box>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        open={openLogoutDialog}
+        onClose={() => setOpenLogoutDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to logout?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenLogoutDialog(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleLogout} variant="contained" color="primary">
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default AdminLayout; 
+export default NonVerifiedTALayout; 

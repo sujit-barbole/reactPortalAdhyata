@@ -36,6 +36,7 @@ import {
   Visibility as VisibilityIcon,
   Search as SearchIcon,
   Add as AddIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import AdminLayout from '../components/AdminLayout';
 
@@ -80,7 +81,7 @@ interface TARegistration {
   nsimNumber: string;
   registeredDate: string;
   registeredTime: string;
-  status: 'Pending' | 'Approved' | 'Declined';
+  status: 'Pending' | 'Approved' | 'Declined' | 'Blocked';
   verification: 'OTP Verified' | 'Not Verified';
   initials: string;
   phone?: string;
@@ -95,11 +96,53 @@ interface TARegistration {
   pendingReconciliationAmount?: number;
 }
 
+// Add Study interface
+interface Study {
+  id: number;
+  exchange: string;
+  index: string;
+  stock: string;
+  currentPrice: number;
+  action: 'BUY' | 'SELL';
+  expectedPrice: number;
+  studyText: string;
+  submittedDate: string;
+}
+
+// Add mock studies data
+const mockStudies: Study[] = [
+  {
+    id: 1,
+    exchange: 'NSE',
+    index: 'NIFTY 50',
+    stock: 'RELIANCE',
+    currentPrice: 2456.75,
+    action: 'BUY',
+    expectedPrice: 2600.00,
+    studyText: 'Technical analysis suggests bullish trend...',
+    submittedDate: '2024-03-20',
+  },
+  {
+    id: 2,
+    exchange: 'BSE',
+    index: 'SENSEX',
+    stock: 'TCS',
+    currentPrice: 3456.80,
+    action: 'SELL',
+    expectedPrice: 3200.00,
+    studyText: 'Fundamental analysis indicates overvaluation...',
+    submittedDate: '2024-03-19',
+  },
+];
+
 const TaManagementPage: React.FC = () => {
   const [selectedTA, setSelectedTA] = useState<TARegistration | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Declined'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Declined' | 'Blocked'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStudy, setSelectedStudy] = useState<Study | null>(null);
+  const [openStudyDialog, setOpenStudyDialog] = useState(false);
+  const [openStudyDetailsDialog, setOpenStudyDetailsDialog] = useState(false);
 
   // Update the mock data to include more TAs with different statuses
   const allTARegistrations: TARegistration[] = [
@@ -111,7 +154,7 @@ const TaManagementPage: React.FC = () => {
       registeredDate: 'Mar 21, 2025',
       registeredTime: '10:23 AM',
       status: 'Pending',
-      verification: 'OTP Verified',
+      verification: 'Not Verified',
       initials: 'AS',
       phone: '+91 98765 43210',
       address: '123, Street Name, City, State - 123456',
@@ -132,7 +175,7 @@ const TaManagementPage: React.FC = () => {
       registeredDate: 'Mar 20, 2025',
       registeredTime: '4:12 PM',
       status: 'Approved',
-      verification: 'OTP Verified',
+      verification: 'Not Verified',
       initials: 'RP'
     },
     {
@@ -153,9 +196,30 @@ const TaManagementPage: React.FC = () => {
       nsimNumber: 'NS-8998-2025',
       registeredDate: 'Mar 19, 2025',
       registeredTime: '2:30 PM',
-      status: 'Pending',
+      status: 'Blocked',
       verification: 'Not Verified',
       initials: 'PS'
+    },
+    {
+      id: '5',
+      name: 'Meera Desai',
+      email: 'meera.desai@example.com',
+      nsimNumber: 'NS-9001-2025',
+      registeredDate: 'Mar 18, 2025',
+      registeredTime: '11:15 AM',
+      status: 'Approved',
+      verification: 'OTP Verified',
+      initials: 'MD',
+      phone: '+91 98765 43211',
+      address: '456, Street Name, City, State - 123456',
+      experience: '8 years in financial advisory',
+      education: 'MCom Finance',
+      documents: {
+        aadhar: 'aadhar_card.pdf',
+        nsim: 'nsim.pdf'
+      },
+      allowedBuckets: ["Basic Bucket", "Gold Bucket", "Platinum Bucket"],
+      pendingReconciliationAmount: 2500
     }
   ];
 
@@ -173,7 +237,7 @@ const TaManagementPage: React.FC = () => {
       pendingReview: allTARegistrations.filter(ta => 
         ta.status === 'Pending'
       ).length,
-      updatedAgo: '10 minutes ago', // This would come from backend in real app
+      updatedAgo: '10 minutes ago',
       approved: allTARegistrations.filter(ta => 
         ta.status === 'Approved'
       ).length,
@@ -185,6 +249,13 @@ const TaManagementPage: React.FC = () => {
       ).length,
       declinedToday: allTARegistrations.filter(ta => 
         ta.status === 'Declined' && 
+        new Date(ta.registeredDate).toDateString() === new Date().toDateString()
+      ).length,
+      blocked: allTARegistrations.filter(ta => 
+        ta.status === 'Blocked'
+      ).length,
+      blockedToday: allTARegistrations.filter(ta => 
+        ta.status === 'Blocked' && 
         new Date(ta.registeredDate).toDateString() === new Date().toDateString()
       ).length
     };
@@ -219,7 +290,7 @@ const TaManagementPage: React.FC = () => {
   };
 
   // Add filter handler
-  const handleStatusFilterClick = (status: 'all' | 'Pending' | 'Approved' | 'Declined') => {
+  const handleStatusFilterClick = (status: 'all' | 'Pending' | 'Approved' | 'Declined' | 'Blocked') => {
     setStatusFilter(status);
   };
 
@@ -245,6 +316,36 @@ const TaManagementPage: React.FC = () => {
     return filtered;
   };
 
+  // Add new handler functions
+  const handleBlock = (taId: string) => {
+    console.log('Blocking TA:', taId);
+    // Add your block logic here
+    handleCloseModal();
+  };
+
+  const handleRequestOTP = (taId: string) => {
+    console.log('Requesting OTP verification for TA:', taId);
+    // Add your OTP request logic here
+  };
+
+  const handleViewStudies = () => {
+    setOpenStudyDialog(true);
+  };
+
+  const handleCloseStudyDialog = () => {
+    setOpenStudyDialog(false);
+  };
+
+  const handleViewStudyDetails = (study: Study) => {
+    setSelectedStudy(study);
+    setOpenStudyDetailsDialog(true);
+  };
+
+  const handleCloseStudyDetailsDialog = () => {
+    setOpenStudyDetailsDialog(false);
+    setSelectedStudy(null);
+  };
+
   return (
     <AdminLayout>
       <Container maxWidth="xl">
@@ -267,7 +368,7 @@ const TaManagementPage: React.FC = () => {
           {/* Stats Cards */}
           <Grid container spacing={3} sx={{ mb: 8 }}>
             {/* Total TAs */}
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid item xs={12} md={6} lg={2.4}>
               <Paper 
                 sx={{ 
                   p: 3, 
@@ -296,7 +397,7 @@ const TaManagementPage: React.FC = () => {
             </Grid>
 
             {/* Pending Review */}
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid item xs={12} md={6} lg={2.4}>
               <Paper 
                 sx={{ 
                   p: 3, 
@@ -313,7 +414,7 @@ const TaManagementPage: React.FC = () => {
                   <Avatar sx={{ bgcolor: 'warning.light', mr: 2 }}>
                     <AccessTimeIcon />
                   </Avatar>
-                  <Typography variant="h6">Pending Review</Typography>
+                  <Typography variant="h6">Pending</Typography>
                 </Box>
                 <Typography variant="h3" component="div" gutterBottom>
                   {dashboardStats.pendingReview}
@@ -325,7 +426,7 @@ const TaManagementPage: React.FC = () => {
             </Grid>
 
             {/* Approved */}
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid item xs={12} md={6} lg={2.4}>
               <Paper 
                 sx={{ 
                   p: 3, 
@@ -354,7 +455,7 @@ const TaManagementPage: React.FC = () => {
             </Grid>
 
             {/* Declined */}
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid item xs={12} md={6} lg={2.4}>
               <Paper 
                 sx={{ 
                   p: 3, 
@@ -378,6 +479,35 @@ const TaManagementPage: React.FC = () => {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {dashboardStats.declinedToday} today
+                </Typography>
+              </Paper>
+            </Grid>
+
+            {/* Blocked */}
+            <Grid item xs={12} md={6} lg={2.4}>
+              <Paper 
+                sx={{ 
+                  p: 3, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  height: 140,
+                  cursor: 'pointer',
+                  bgcolor: statusFilter === 'Blocked' ? 'error.light' : 'inherit',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+                onClick={() => handleStatusFilterClick('Blocked')}
+              >
+                <Box display="flex" alignItems="center" mb={2}>
+                  <Avatar sx={{ bgcolor: 'error.light', mr: 2 }}>
+                    <CancelIcon />
+                  </Avatar>
+                  <Typography variant="h6">Blocked</Typography>
+                </Box>
+                <Typography variant="h3" component="div" gutterBottom>
+                  {dashboardStats.blocked}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {dashboardStats.blockedToday} today
                 </Typography>
               </Paper>
             </Grid>
@@ -453,30 +583,49 @@ const TaManagementPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip 
-                            label={registration.status} 
-                            color={registration.status === 'Pending' ? 'warning' : 
-                                   registration.status === 'Approved' ? 'success' : 'error'} 
-                            size="small"
-                            variant="outlined"
-                          />
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 2
+                        }}>
                           <Tooltip title="View TA Details">
                             <IconButton
                               size="small"
                               onClick={() => handleViewTA(registration.id)}
                               sx={{ 
-                                ml: 1,
                                 bgcolor: 'primary.main',
                                 color: 'white',
+                                width: '28px',
+                                height: '28px',
                                 '&:hover': {
                                   bgcolor: 'primary.dark',
-                                },
+                                }
                               }}
                             >
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          <Chip 
+                            label={registration.status} 
+                            color={
+                              registration.status === 'Pending' ? 'warning' : 
+                              registration.status === 'Approved' ? 'success' : 
+                              registration.status === 'Blocked' ? 'error' : 'default'
+                            } 
+                            sx={{
+                              ...(registration.status === 'Declined' && {
+                                bgcolor: 'grey.200',
+                                color: 'grey.700',
+                                borderColor: 'grey.400',
+                                '&:hover': {
+                                  bgcolor: 'grey.300',
+                                }
+                              }),
+                              height: '28px'
+                            }}
+                            size="small"
+                            variant="outlined"
+                          />
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -688,30 +837,247 @@ const TaManagementPage: React.FC = () => {
                     </Grid>
                   </Paper>
                 </Grid>
+
+                {/* Add Studies Section */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    Submitted Studies
+                  </Typography>
+                  <Paper sx={{ p: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AssessmentIcon />}
+                      onClick={handleViewStudies}
+                      fullWidth
+                    >
+                      View All Submitted Studies
+                    </Button>
+                  </Paper>
+                </Grid>
               </Grid>
             </DialogContent>
             <DialogActions sx={{ p: 3 }}>
               <Button onClick={handleCloseModal}>
                 Cancel
               </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={() => handleDecline(selectedTA.id)}
-                sx={{ mx: 1 }}
-              >
-                Decline
-              </Button>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={() => handleApprove(selectedTA.id)}
-              >
-                Approve
-              </Button>
+
+              {/* Buttons for Approved Users */}
+              {selectedTA.status === 'Approved' && (
+                <>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleBlock(selectedTA.id)}
+                    sx={{ mx: 1 }}
+                  >
+                    Block
+                  </Button>
+                  {selectedTA.verification === 'Not Verified' && (
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => handleRequestOTP(selectedTA.id)}
+                      sx={{ mx: 1 }}
+                    >
+                      Request Aadhar Verification
+                    </Button>
+                  )}
+                </>
+              )}
+
+              {/* Buttons for Blocked Users */}
+              {selectedTA.status === 'Blocked' && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleApprove(selectedTA.id)}
+                  sx={{ mx: 1 }}
+                >
+                  Approve
+                </Button>
+              )}
+
+              {/* Buttons for Pending Users */}
+              {selectedTA.status === 'Pending' && (
+                <>
+                  <Button
+                    variant="outlined"
+                    onClick={() => handleDecline(selectedTA.id)}
+                    sx={{ 
+                      mx: 1,
+                      bgcolor: 'grey.200',
+                      color: 'grey.700',
+                      borderColor: 'grey.400',
+                      '&:hover': {
+                        bgcolor: 'grey.300',
+                        borderColor: 'grey.500',
+                      }
+                    }}
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleBlock(selectedTA.id)}
+                    sx={{ mx: 1 }}
+                  >
+                    Block
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={() => handleApprove(selectedTA.id)}
+                  >
+                    Approve
+                  </Button>
+                </>
+              )}
+
+              {/* Buttons for Declined Users */}
+              {selectedTA.status === 'Declined' && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleApprove(selectedTA.id)}
+                  sx={{ mx: 1 }}
+                >
+                  Approve
+                </Button>
+              )}
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Studies Dialog */}
+      <Dialog
+        open={openStudyDialog}
+        onClose={handleCloseStudyDialog}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>Submitted Studies</DialogTitle>
+        <DialogContent>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Exchange</TableCell>
+                  <TableCell>Index</TableCell>
+                  <TableCell>Stock</TableCell>
+                  <TableCell>Current Price</TableCell>
+                  <TableCell>Action</TableCell>
+                  <TableCell>Expected Price</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {mockStudies.map((study) => (
+                  <TableRow key={study.id}>
+                    <TableCell>{study.submittedDate}</TableCell>
+                    <TableCell>{study.exchange}</TableCell>
+                    <TableCell>{study.index}</TableCell>
+                    <TableCell>{study.stock}</TableCell>
+                    <TableCell>₹{study.currentPrice.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Typography
+                        color={study.action === 'BUY' ? 'success.main' : 'error.main'}
+                        fontWeight="bold"
+                      >
+                        {study.action}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>₹{study.expectedPrice.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => handleViewStudyDetails(study)}
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStudyDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Study Details Dialog */}
+      <Dialog
+        open={openStudyDetailsDialog}
+        onClose={handleCloseStudyDetailsDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Study Details</DialogTitle>
+        <DialogContent>
+          {selectedStudy && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Exchange
+                </Typography>
+                <Typography variant="body1">{selectedStudy.exchange}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Index
+                </Typography>
+                <Typography variant="body1">{selectedStudy.index}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Stock
+                </Typography>
+                <Typography variant="body1">{selectedStudy.stock}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Current Price
+                </Typography>
+                <Typography variant="body1">₹{selectedStudy.currentPrice.toFixed(2)}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Action
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color={selectedStudy.action === 'BUY' ? 'success.main' : 'error.main'}
+                  fontWeight="bold"
+                >
+                  {selectedStudy.action}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Expected Price
+                </Typography>
+                <Typography variant="body1">₹{selectedStudy.expectedPrice.toFixed(2)}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Study Analysis
+                </Typography>
+                <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+                  <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>
+                    {selectedStudy.studyText}
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStudyDetailsDialog}>Close</Button>
+        </DialogActions>
       </Dialog>
     </AdminLayout>
   );

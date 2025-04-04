@@ -28,6 +28,7 @@ import {
   Checkbox,
   ThemeProvider,
   createTheme,
+  Divider,
 } from '@mui/material';
 import { 
   ArrowBack, 
@@ -56,6 +57,9 @@ interface StockCall {
   profit?: number;
   remarks?: string;
   taName: string;
+  bucket: string;
+  entryDateTime: string;
+  exitDateTime?: string;
 }
 
 const StockCallsPage: React.FC = () => {
@@ -76,7 +80,9 @@ const StockCallsPage: React.FC = () => {
       stopLoss: 2400.00,
       id: '1',
       status: 'Pending',
-      taName: 'Anil Sharma'
+      taName: 'Anil Sharma',
+      bucket: 'Basic Bucket',
+      entryDateTime: 'Mar 21, 2024 10:15 AM',
     },
     {
       time: '11:30 AM',
@@ -90,7 +96,10 @@ const StockCallsPage: React.FC = () => {
       executedAt: '11:45 AM',
       profit: 41.70,
       remarks: 'Target achieved',
-      taName: 'Ravi Patel'
+      taName: 'Ravi Patel',
+      bucket: 'Basic Bucket',
+      entryDateTime: 'Mar 21, 2024 11:30 AM',
+      exitDateTime: 'Mar 21, 2024 11:45 AM'
     },
     {
       time: '12:45 PM',
@@ -104,7 +113,10 @@ const StockCallsPage: React.FC = () => {
       executedAt: '1:15 PM',
       profit: -13.75,
       remarks: 'Stop loss hit',
-      taName: 'Rajesh Kumar'
+      taName: 'Rajesh Kumar',
+      bucket: 'Basic Bucket',
+      entryDateTime: 'Mar 21, 2024 12:45 PM',
+      exitDateTime: 'Mar 21, 2024 1:15 PM'
     }
   ]);
 
@@ -327,42 +339,35 @@ const StockCallsPage: React.FC = () => {
                 >
                   Generate Excel {selectedCalls.length > 0 && `(${selectedCalls.length})`}
                 </Button>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<SuccessIcon />}
-                  onClick={handleBulkSuccess}
-                  disabled={selectedCalls.length === 0}
-                >
-                  Mark Success {selectedCalls.length > 0 && `(${selectedCalls.length})`}
-                </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<FailureIcon />}
-                  onClick={handleBulkFailure}
-                  disabled={selectedCalls.length === 0}
-                >
-                  Mark Failure {selectedCalls.length > 0 && `(${selectedCalls.length})`}
-                </Button>
               </Box>
             </Box>
             
-            <TableContainer component={Paper}>
+            <TableContainer 
+              component={Paper}
+              sx={{ 
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                borderRadius: 2,
+                '& .MuiTableCell-root': {
+                  py: 2,
+                  px: 2,
+                  fontSize: '0.875rem'
+                }
+              }}
+            >
               <Table>
                 <TableHead>
-                  <TableRow>
-                    <TableCell>TA NAME</TableCell>
-                    <TableCell>STOCK</TableCell>
-                    <TableCell>TYPE</TableCell>
-                    <TableCell>ENTRY PRICE</TableCell>
-                    <TableCell>EXIT PRICE</TableCell>
-                    <TableCell>TARGET</TableCell>
-                    <TableCell>STOP LOSS</TableCell>
-                    <TableCell>TIME</TableCell>
-                    <TableCell>STATUS</TableCell>
-                    <TableCell>ACTIONS</TableCell>
-                    <TableCell padding="checkbox" align="center">
+                  <TableRow sx={{ bgcolor: 'grey.50' }}>
+                    <TableCell sx={{ fontWeight: 600, width: '15%' }}>TA NAME</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '10%' }}>BUCKET</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '8%' }}>STOCK</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '8%' }}>TYPE</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '10%' }}>ENTRY PRICE</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '10%' }}>EXIT PRICE</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '10%' }}>TARGET</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '10%' }}>STOP LOSS</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '8%' }}>STATUS</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: '8%' }}>ACTIONS</TableCell>
+                    <TableCell padding="checkbox" align="center" sx={{ width: '5%' }}>
                       <Checkbox
                         checked={getFilteredCalls().length > 0 && selectedCalls.length === getFilteredCalls().length}
                         indeterminate={selectedCalls.length > 0 && selectedCalls.length < getFilteredCalls().length}
@@ -379,9 +384,35 @@ const StockCallsPage: React.FC = () => {
                 </TableHead>
                 <TableBody>
                   {getFilteredCalls().map((call) => (
-                    <TableRow key={call.id}>
-                      <TableCell>{call.taName}</TableCell>
-                      <TableCell>{call.stock}</TableCell>
+                    <TableRow 
+                      key={call.id}
+                      sx={{ 
+                        '&:hover': { 
+                          bgcolor: 'grey.50',
+                          transition: 'background-color 0.2s'
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{call.taName}</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={call.bucket}
+                          size="small"
+                          sx={{ 
+                            bgcolor: call.bucket === 'Basic Bucket' ? 'primary.light' :
+                                   call.bucket === 'Gold Bucket' ? 'warning.light' :
+                                   call.bucket === 'Platinum Bucket' ? 'info.light' : 'secondary.light',
+                            color: 'white',
+                            fontWeight: 500,
+                            minWidth: '100px'
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{call.stock}</TableCell>
                       <TableCell>
                         <Chip 
                           label={call.type}
@@ -390,22 +421,25 @@ const StockCallsPage: React.FC = () => {
                             color: 'white',
                             bgcolor: call.type === 'Buy' ? 'success.main' : 'error.main',
                             fontWeight: 500,
-                            borderRadius: 1
+                            borderRadius: 1,
+                            minWidth: '70px'
                           }}
                         />
                       </TableCell>
-                      <TableCell>₹{call.entryPrice.toFixed(2)}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>₹{call.entryPrice.toFixed(2)}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
                         {call.exitPrice ? `₹${call.exitPrice.toFixed(2)}` : '-'}
                       </TableCell>
-                      <TableCell>₹{call.target.toFixed(2)}</TableCell>
-                      <TableCell>₹{call.stopLoss.toFixed(2)}</TableCell>
-                      <TableCell>{call.time}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>₹{call.target.toFixed(2)}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>₹{call.stopLoss.toFixed(2)}</TableCell>
                       <TableCell>
                         <Chip 
                           label={call.status}
                           color={call.status === 'Pending' ? 'warning' : 'success'}
-                          sx={{ fontWeight: 500 }}
+                          sx={{ 
+                            fontWeight: 500,
+                            minWidth: '90px'
+                          }}
                         />
                       </TableCell>
                       <TableCell>
@@ -417,7 +451,13 @@ const StockCallsPage: React.FC = () => {
                               sx={{ 
                                 bgcolor: 'primary.main',
                                 color: 'white',
-                                '&:hover': { bgcolor: 'primary.dark' },
+                                width: '28px',
+                                height: '28px',
+                                '&:hover': { 
+                                  bgcolor: 'primary.dark',
+                                  transform: 'scale(1.05)',
+                                  transition: 'transform 0.2s'
+                                },
                               }}
                             >
                               <VisibilityIcon fontSize="small" />
@@ -430,7 +470,13 @@ const StockCallsPage: React.FC = () => {
                               sx={{ 
                                 bgcolor: 'warning.main',
                                 color: 'white',
-                                '&:hover': { bgcolor: 'warning.dark' },
+                                width: '28px',
+                                height: '28px',
+                                '&:hover': { 
+                                  bgcolor: 'warning.dark',
+                                  transform: 'scale(1.05)',
+                                  transition: 'transform 0.2s'
+                                },
                               }}
                             >
                               <EditIcon fontSize="small" />
@@ -462,88 +508,163 @@ const StockCallsPage: React.FC = () => {
       >
         {selectedCall && (
           <>
-            <DialogTitle>
+            <DialogTitle sx={{ pb: 2 }}>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Typography variant="h6">
-                    Stock Call Details - {selectedCall.stock}
-                  </Typography>
+                  <Box>
+                    <Typography variant="h6" gutterBottom>
+                      {selectedCall.stock}
+                    </Typography>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Chip 
+                        label={selectedCall.type}
+                        color={selectedCall.type === 'Buy' ? 'success' : 'error'}
+                        size="small"
+                        sx={{ 
+                          color: 'white',
+                          bgcolor: selectedCall.type === 'Buy' ? 'success.main' : 'error.main',
+                          fontWeight: 500,
+                          borderRadius: 1
+                        }}
+                      />
+                      <Chip 
+                        label={selectedCall.bucket}
+                        size="small"
+                        sx={{ 
+                          bgcolor: selectedCall.bucket === 'Basic Bucket' ? 'primary.light' :
+                                 selectedCall.bucket === 'Gold Bucket' ? 'warning.light' :
+                                 selectedCall.bucket === 'Platinum Bucket' ? 'info.light' : 'secondary.light',
+                          color: 'white',
+                          fontWeight: 500
+                        }}
+                      />
+                    </Box>
+                  </Box>
                 </Box>
+                <Chip 
+                  label={selectedCall.status}
+                  color={selectedCall.status === 'Pending' ? 'warning' : 'success'}
+                  sx={{ 
+                    fontWeight: 500,
+                    minWidth: '100px'
+                  }}
+                />
               </Box>
             </DialogTitle>
             <DialogContent>
-              <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid container spacing={3}>
+                {/* TA Information */}
                 <Grid item xs={12}>
-                  <Paper sx={{ p: 2 }}>
-                    <Grid container spacing={2}>
+                  <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                      TA Information
+                    </Typography>
+                    <Grid container spacing={3}>
                       <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Time
-                        </Typography>
-                        <Typography variant="body1">{selectedCall.time}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          TA Name
-                        </Typography>
-                        <Typography variant="body1">{selectedCall.taName}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Type
-                        </Typography>
-                        <Chip 
-                          label={selectedCall.type}
-                          color={selectedCall.type === 'Buy' ? 'success' : 'error'}
-                          size="small"
-                          sx={{ 
-                            color: 'white',
-                            bgcolor: selectedCall.type === 'Buy' ? 'success.main' : 'error.main',
-                            fontWeight: 500
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Entry Price
-                        </Typography>
-                        <Typography variant="body1">₹{selectedCall.entryPrice.toFixed(2)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Exit Price
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedCall.exitPrice ? `₹${selectedCall.exitPrice.toFixed(2)}` : '-'}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Target
-                        </Typography>
-                        <Typography variant="body1">₹{selectedCall.target.toFixed(2)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Stop Loss
-                        </Typography>
-                        <Typography variant="body1">₹{selectedCall.stopLoss.toFixed(2)}</Typography>
-                      </Grid>
-                      {selectedCall.status === 'Executed' && (
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">
-                            Executed At
+                        <Box>
+                          <Typography variant="h6" gutterBottom>
+                            {selectedCall.taName}
                           </Typography>
-                          <Typography variant="body1">{selectedCall.executedAt}</Typography>
-                        </Grid>
-                      )}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Entry Date & Time: {selectedCall.entryDateTime}
+                            </Typography>
+                            {selectedCall.exitDateTime && (
+                              <Typography variant="body2" color="text.secondary">
+                                Exit Date & Time: {selectedCall.exitDateTime}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      </Grid>
                     </Grid>
                   </Paper>
                 </Grid>
+
+                {/* Price Information */}
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                      Price Information
+                    </Typography>
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Entry Price
+                            </Typography>
+                            <Typography variant="h5">
+                              ₹{selectedCall.entryPrice.toFixed(2)}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Stop Loss
+                            </Typography>
+                            <Typography variant="h5">
+                              ₹{selectedCall.stopLoss.toFixed(2)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Target Price
+                            </Typography>
+                            <Typography variant="h5">
+                              ₹{selectedCall.target.toFixed(2)}
+                            </Typography>
+                          </Box>
+                          {selectedCall.exitPrice && (
+                            <Box>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Exit Price
+                              </Typography>
+                              <Typography variant="h5">
+                                ₹{selectedCall.exitPrice.toFixed(2)}
+                              </Typography>
+                              {selectedCall.profit && (
+                                <Typography variant="body2" color={selectedCall.profit > 0 ? 'success.main' : 'error.main'}>
+                                  Profit/Loss: ₹{Math.abs(selectedCall.profit).toFixed(2)}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+
+                {/* Additional Information */}
+                {selectedCall.remarks && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                        Additional Information
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedCall.remarks}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
               </Grid>
             </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseModal}>Close</Button>
+            <DialogActions sx={{ p: 3, pt: 0 }}>
+              <Button onClick={handleCloseModal}>
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => handleEditClick(selectedCall)}
+              >
+                Edit Call
+              </Button>
             </DialogActions>
           </>
         )}
