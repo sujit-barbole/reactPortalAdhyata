@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Drawer,
@@ -8,7 +8,12 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
@@ -30,6 +35,13 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
+
+  const handleLogout = () => {
+    // Here you would typically clear any authentication tokens or user data
+    setOpenLogoutDialog(false);
+    navigate('/');
+  };
 
   const sidebarItems = [
     { text: 'MAIN', type: 'header' },
@@ -40,11 +52,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { text: 'Bucket Management', icon: <BucketManagementIcon />, path: '/bucket-management' },
     { text: 'Investor Management', icon: <InvestorManagementIcon />, path: '/investormanagement' },
     { text: 'ACCOUNT', type: 'header' },
-    { text: 'Logout', icon: <LogoutIcon />, path: '/' },
+    { text: 'Logout', icon: <LogoutIcon />, path: '#' },
   ];
 
   const handleNavigation = (path: string) => {
-    navigate(path);
+    if (path === '#') {
+      setOpenLogoutDialog(true);
+    } else {
+      navigate(path);
+    }
   };
 
   return (
@@ -123,6 +139,29 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       >
         {children}
       </Box>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        open={openLogoutDialog}
+        onClose={() => setOpenLogoutDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to logout?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenLogoutDialog(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleLogout} variant="contained" color="primary">
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage';
@@ -35,27 +37,91 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegistrationPage />} />
-          <Route path="/admindashboard" element={<AdminDashboard />} />
-          <Route path="/investormanagement" element={<InvestorManagement />} />
-          <Route path="/tamanagement" element={<TaManagementPage />} />
-          <Route path="/stock-calls" element={<StockCallsPage />} />
-          <Route path="/tadashboard" element={<TADashboard />} />
-          <Route path="/callhistory" element={<CallHistory />} />
-          <Route path="/reconciliation" element={<Reconciliation />} />
-          <Route path="/taprofile" element={<TAProfile />} />
-          <Route path="/bucket-management" element={<BucketManagementPage />} />
-          <Route path="/stocklist" element={<StockListPage />} />
-          <Route path="/nonverifiedtadashboard" element={<NonVerifiedTADashboard />} />
-          <Route path="/nonverifiedtaprofile" element={<NonVerifiedTAProfile />} />
-          <Route path="/submit-study" element={<SubmitStudy />} />
-          <Route path="/study-history" element={<StudyHistory />} />
-        </Routes>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegistrationPage />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admindashboard" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/investormanagement" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <InvestorManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/tamanagement" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <TaManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/stock-calls" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <StockCallsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/bucket-management" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <BucketManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/stocklist" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <StockListPage />
+              </ProtectedRoute>
+            } />
+
+            {/* TA Routes */}
+            <Route path="/tadashboard" element={
+              <ProtectedRoute allowedRoles={['ta']}>
+                <TADashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/callhistory" element={
+              <ProtectedRoute allowedRoles={['ta']}>
+                <CallHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/reconciliation" element={
+              <ProtectedRoute allowedRoles={['ta']}>
+                <Reconciliation />
+              </ProtectedRoute>
+            } />
+            <Route path="/taprofile" element={
+              <ProtectedRoute allowedRoles={['ta']}>
+                <TAProfile />
+              </ProtectedRoute>
+            } />
+
+            {/* Non-Verified TA Routes */}
+            <Route path="/nonverifiedtadashboard" element={
+              <ProtectedRoute allowedRoles={['nta']}>
+                <NonVerifiedTADashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/nonverifiedtaprofile" element={
+              <ProtectedRoute allowedRoles={['nta']}>
+                <NonVerifiedTAProfile />
+              </ProtectedRoute>
+            } />
+            <Route path="/submit-study" element={
+              <ProtectedRoute allowedRoles={['nta']}>
+                <SubmitStudy />
+              </ProtectedRoute>
+            } />
+            <Route path="/study-history" element={
+              <ProtectedRoute allowedRoles={['nta']}>
+                <StudyHistory />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 };

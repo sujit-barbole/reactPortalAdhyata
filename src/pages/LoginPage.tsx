@@ -6,7 +6,9 @@ import {
   Button,
   TextField,
   Link,
-  FormControl,
+  Paper,
+  InputAdornment,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -14,9 +16,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Paper,
-  InputAdornment,
-  IconButton,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,11 +26,7 @@ import {
   AccountCircle as AccountCircleIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-
-interface LoginFormData {
-  email: string;
-  password: string;
-}
+import { useAuth } from '../context/AuthContext';
 
 interface ForgotPasswordState {
   email: string;
@@ -42,12 +37,13 @@ interface ForgotPasswordState {
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
-    password: ''
-  });
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
+  // Forgot Password State
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [forgotPasswordData, setForgotPasswordData] = useState<ForgotPasswordState>({
@@ -59,25 +55,37 @@ const LoginPage: React.FC = () => {
 
   const steps = ['Enter Email', 'Verify OTP', 'Reset Password'];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // Here you would typically handle login logic
-      console.log('Login Data:', formData);
-    } catch (error) {
-      console.error('Login failed:', error);
-      alert('Login failed. Please try again.');
+  const handleLogin = () => {
+    console.log('Login button clicked');
+    console.log('Email:', email);
+    console.log('Password:', password);
+    
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
     }
+
+    // Direct login without async/await
+    login(email, password)
+      .then(() => {
+        console.log('Login successful');
+        
+        // Manually navigate based on credentials
+        if (email === 'admin@gmail.com' && password === 'admin') {
+          navigate('/admindashboard');
+        } else if (email === 'ta@gmail.com' && password === 'ta') {
+          navigate('/tadashboard');
+        } else if (email === 'nta@gmail.com' && password === 'nta') {
+          navigate('/nonverifiedtadashboard');
+        }
+      })
+      .catch((error) => {
+        console.error('Login failed:', error);
+        setError('Invalid credentials. Please try again.');
+      });
   };
 
+  // Forgot Password Handlers
   const handleForgotPasswordOpen = () => {
     setForgotPasswordOpen(true);
   };
@@ -255,82 +263,15 @@ const LoginPage: React.FC = () => {
         py: { xs: 4, sm: 6, md: 8 },
         bgcolor: 'background.default',
         background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
-        position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.1), transparent 50%)',
-          animation: 'pulse 8s ease-in-out infinite',
-        },
-        '@keyframes pulse': {
-          '0%': {
-            transform: 'scale(1)',
-            opacity: 0.5,
-          },
-          '50%': {
-            transform: 'scale(1.1)',
-            opacity: 0.8,
-          },
-          '100%': {
-            transform: 'scale(1)',
-            opacity: 0.5,
-          },
-        },
       }}
     >
       <Container maxWidth="sm">
         <Paper 
-          component="form" 
-          onSubmit={handleLoginSubmit}
           elevation={3}
           sx={{ 
             width: '100%',
             p: { xs: 3, sm: 4, md: 5 },
             borderRadius: 2,
-            bgcolor: 'background.paper',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            backdropFilter: 'blur(10px)',
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '4px',
-              background: 'linear-gradient(90deg, #1976d2, #64b5f6)',
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              width: '100px',
-              height: '100px',
-              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.1) 0%, transparent 70%)',
-              transform: 'translate(50%, -50%)',
-              borderRadius: '50%',
-              animation: 'float 6s ease-in-out infinite',
-            },
-            '@keyframes float': {
-              '0%': {
-                transform: 'translate(50%, -50%) scale(1)',
-              },
-              '50%': {
-                transform: 'translate(50%, -50%) scale(1.2)',
-              },
-              '100%': {
-                transform: 'translate(50%, -50%) scale(1)',
-              },
-            },
           }}
         >
           <Box sx={{ 
@@ -338,26 +279,12 @@ const LoginPage: React.FC = () => {
             flexDirection: 'column', 
             alignItems: 'center', 
             mb: 4,
-            position: 'relative',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '120px',
-              height: '120px',
-              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.05) 0%, transparent 70%)',
-              borderRadius: '50%',
-              zIndex: -1,
-            }
           }}>
             <AccountCircleIcon 
               sx={{ 
                 fontSize: 48, 
                 color: 'primary.main',
                 mb: 2,
-                animation: 'bounce 2s ease-in-out infinite',
               }} 
             />
             <Typography 
@@ -367,8 +294,6 @@ const LoginPage: React.FC = () => {
               sx={{ 
                 fontWeight: 'bold',
                 color: 'primary.main',
-                fontSize: { xs: '1.75rem', sm: '2rem', md: '2.25rem' },
-                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
             >
               Welcome Back
@@ -383,13 +308,22 @@ const LoginPage: React.FC = () => {
             </Typography>
           </Box>
 
+          {error && (
+            <Typography 
+              variant="body2" 
+              color="error" 
+              align="center"
+              sx={{ mb: 2 }}
+            >
+              {error}
+            </Typography>
+          )}
+
           <TextField
             fullWidth
             label="Email Address"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleInputChange}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
             margin="normal"
             InputProps={{
@@ -404,10 +338,9 @@ const LoginPage: React.FC = () => {
           <TextField
             fullWidth
             label="Password"
-            name="password"
             type={showPassword ? 'text' : 'password'}
-            value={formData.password}
-            onChange={handleInputChange}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
             margin="normal"
             InputProps={{
@@ -430,11 +363,11 @@ const LoginPage: React.FC = () => {
           />
 
           <Button 
-            type="submit"
             variant="contained" 
             fullWidth 
             size="large"
             endIcon={<ArrowForwardIcon />}
+            onClick={handleLogin}
             sx={{
               mt: 4,
               mb: 2,
@@ -451,9 +384,6 @@ const LoginPage: React.FC = () => {
             <Typography 
               variant="body2" 
               color="text.secondary"
-              sx={{ 
-                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-              }}
             >
               Don't have an account?{' '}
               <Link 
@@ -476,7 +406,6 @@ const LoginPage: React.FC = () => {
               color="primary" 
               sx={{ 
                 textDecoration: 'none',
-                fontSize: { xs: '0.75rem', sm: '0.875rem' },
                 '&:hover': {
                   textDecoration: 'underline'
                 }

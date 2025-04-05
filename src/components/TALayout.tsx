@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Drawer,
@@ -8,7 +8,12 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
@@ -27,6 +32,13 @@ interface TALayoutProps {
 
 const TALayout: React.FC<TALayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
+
+  const handleLogout = () => {
+    // Here you would typically clear any authentication tokens or user data
+    setOpenLogoutDialog(false);
+    navigate('/');
+  };
 
   const sidebarItems = [
     { text: 'MAIN', type: 'header' },
@@ -35,8 +47,16 @@ const TALayout: React.FC<TALayoutProps> = ({ children }) => {
     { text: 'Reconciliation', icon: <ReconciliationIcon />, path: '/reconciliation' },
     { text: 'ACCOUNT', type: 'header' },
     { text: 'Profile', icon: <ProfileIcon />, path: '/taprofile' },
-    { text: 'Logout', icon: <LogoutIcon />, path: '/' },
+    { text: 'Logout', icon: <LogoutIcon />, path: '#' },
   ];
+
+  const handleNavigation = (path: string) => {
+    if (path === '#') {
+      setOpenLogoutDialog(true);
+    } else {
+      navigate(path);
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -82,7 +102,7 @@ const TALayout: React.FC<TALayoutProps> = ({ children }) => {
             ) : (
               <ListItem key={item.text} disablePadding>
                 <ListItemButton
-                  onClick={() => item.path && navigate(item.path)}
+                  onClick={() => item.path && handleNavigation(item.path)}
                   sx={{
                     px: 3,
                     py: 1,
@@ -110,6 +130,29 @@ const TALayout: React.FC<TALayoutProps> = ({ children }) => {
       >
         {children}
       </Box>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        open={openLogoutDialog}
+        onClose={() => setOpenLogoutDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to logout?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenLogoutDialog(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleLogout} variant="contained" color="primary">
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
