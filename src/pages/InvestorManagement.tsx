@@ -28,6 +28,7 @@ import {
   Checkbox,
   InputAdornment,
   Divider,
+  Slider,
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
@@ -56,6 +57,13 @@ interface Investor {
   totalAmount: number;
   toBeInvested: number;
   initials: string;
+  bucketAllocations?: BucketAllocation[];
+}
+
+interface BucketAllocation {
+  bucketId: string;
+  bucketName: string;
+  percentage: number;
 }
 
 const InvestorManagement: React.FC = () => {
@@ -119,6 +127,7 @@ const InvestorManagement: React.FC = () => {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState<'investor' | 'traded' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [bucketAllocations, setBucketAllocations] = useState<BucketAllocation[]>([]);
 
   const getInvestorStats = () => {
     return {
@@ -142,6 +151,7 @@ const InvestorManagement: React.FC = () => {
 
   const handleViewInvestor = (investor: Investor) => {
     setSelectedInvestor(investor);
+    initializeBucketAllocations(investor);
     setIsDetailModalOpen(true);
   };
 
@@ -725,6 +735,68 @@ const InvestorManagement: React.FC = () => {
     </Container>
   );
 
+  const getBuckets = () => {
+    // In a real application, this would fetch from an API or context
+    // For now, we'll use mock data based on BucketManagementPage.tsx
+    return [
+      { id: '1', name: 'Basic Bucket', successRate: 50, minDeposit: 0, maxCalls: 3 },
+      { id: '2', name: 'Gold Bucket', successRate: 65, minDeposit: 10000, maxCalls: 5 },
+      { id: '3', name: 'Platinum Bucket', successRate: 75, minDeposit: 20000, maxCalls: 10 },
+      { id: '4', name: 'Diamond Bucket', successRate: 85, minDeposit: 50000, maxCalls: 'Unlimited' }
+    ];
+  };
+  
+  const initializeBucketAllocations = (investor: Investor) => {
+    const buckets = getBuckets();
+    
+    // If investor already has allocations, use those
+    if (investor.bucketAllocations && investor.bucketAllocations.length > 0) {
+      setBucketAllocations(investor.bucketAllocations);
+    } else {
+      // Otherwise, create default allocations (equal distribution)
+      const defaultAllocations = buckets.map(bucket => ({
+        bucketId: bucket.id,
+        bucketName: bucket.name,
+        percentage: 100 / buckets.length // Equal distribution
+      }));
+      setBucketAllocations(defaultAllocations);
+    }
+  };
+  
+  const handleAllocationChange = (bucketId: string, newPercentage: number) => {
+    setBucketAllocations(prev => 
+      prev.map(allocation => 
+        allocation.bucketId === bucketId 
+          ? { ...allocation, percentage: newPercentage } 
+          : allocation
+      )
+    );
+  };
+  
+  const handleSaveAllocations = () => {
+    if (selectedInvestor) {
+      // In a real application, this would save to an API
+      console.log('Saving bucket allocations for investor:', selectedInvestor.id);
+      console.log('Allocations:', bucketAllocations);
+      
+      // Update the selected investor with the new allocations
+      const updatedInvestor = {
+        ...selectedInvestor,
+        bucketAllocations: [...bucketAllocations]
+      };
+      
+      // Update the investors list
+      setInvestors(prevInvestors => 
+        prevInvestors.map(inv => 
+          inv.id === updatedInvestor.id ? updatedInvestor : inv
+        )
+      );
+      
+      // Show success message
+      alert('Bucket allocations saved successfully!');
+    }
+  };
+
   return (
     <AdminLayout>
       {isSuccess ? (
@@ -828,6 +900,74 @@ const InvestorManagement: React.FC = () => {
                         </Grid>
                       </Grid>
                     </Grid>
+                  </Paper>
+                </Grid>
+                
+                {/* New Bucket Allocation Section */}
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3, bgcolor: 'grey.50' }}>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                      Bucket Allocation
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Configure how the "To be Invested" amount should be distributed across different buckets
+                    </Typography>
+                    
+                    <Box sx={{ mb: 3 }}>
+                      <Grid container spacing={2}>
+                        {bucketAllocations.map((allocation) => (
+                          <Grid item xs={12} sm={6} key={allocation.bucketId}>
+                            <Box sx={{ 
+                              p: 2, 
+                              border: '1px solid', 
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              bgcolor: 'background.paper'
+                            }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                                  {allocation.bucketName}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {allocation.percentage}%
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{ flexGrow: 1 }}>
+                                  <Slider
+                                    value={allocation.percentage}
+                                    onChange={(_, value) => handleAllocationChange(allocation.bucketId, value as number)}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    valueLabelDisplay="auto"
+                                    aria-labelledby={`bucket-${allocation.bucketId}-slider`}
+                                  />
+                                </Box>
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  value={allocation.percentage}
+                                  onChange={(e) => handleAllocationChange(allocation.bucketId, Number(e.target.value))}
+                                  inputProps={{ min: 0, max: 100, step: 1 }}
+                                  sx={{ width: 70 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button 
+                        variant="contained" 
+                        color="primary"
+                        onClick={handleSaveAllocations}
+                      >
+                        Save Allocations
+                      </Button>
+                    </Box>
                   </Paper>
                 </Grid>
               </Grid>

@@ -24,8 +24,6 @@ import {
   Email as EmailIcon,
   Phone as PhoneIcon,
   Lock as LockIcon,
-  School as SchoolIcon,
-  Work as WorkIcon,
   Badge as BadgeIcon,
   CreditCard as CardIcon,
   ArrowForward as ArrowForwardIcon,
@@ -37,6 +35,7 @@ interface FormData {
   aadhaarNumber: string;
   fullName: string;
   email: string;
+  username: string;
   phoneNumber: string;
   experience: string;
   education: string;
@@ -49,6 +48,7 @@ const initialFormData: FormData = {
   aadhaarNumber: '',
   fullName: '',
   email: '',
+  username: '',
   phoneNumber: '',
   experience: '',
   education: '',
@@ -56,7 +56,7 @@ const initialFormData: FormData = {
   confirmPassword: ''
 };
 
-const steps = ['Personal Information', 'Educational Information', 'Document Upload'];
+const steps = ['Personal Information', 'Document Upload'];
 
 const RegistrationPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -294,7 +294,7 @@ const RegistrationPage: React.FC = () => {
         onClick={() => fileInputRef.current?.click()}
         sx={{ mt: 1 }}
       >
-        Browse Files
+        Browse NSIM CERTIFICATE
       </Button>
     </FormControl>
   );
@@ -370,6 +370,43 @@ const RegistrationPage: React.FC = () => {
       <Grid item xs={12} sm={6}>
         <TextField
           fullWidth
+          label="Username"
+          name="username"
+          value={formData.username}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <PersonIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Email Address"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <EmailIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
           label="Phone Number"
           name="phoneNumber"
           value={formData.phoneNumber}
@@ -388,25 +425,6 @@ const RegistrationPage: React.FC = () => {
               maxLength: 10,
               pattern: '[0-9]*'
             }
-          }}
-        />
-      </Grid>
-      <Grid item xs={12}>
-        <TextField
-          fullWidth
-          label="Email Address"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <EmailIcon color="primary" />
-              </InputAdornment>
-            ),
           }}
         />
       </Grid>
@@ -460,49 +478,6 @@ const RegistrationPage: React.FC = () => {
     </Grid>
   );
 
-  const renderEducationAndExperience = () => (
-    <Grid container spacing={2}>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          label="Education Qualification"
-          name="education"
-          value={formData.education}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., B.Tech Computer Science"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SchoolIcon color="primary" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          label="Years of Experience"
-          name="experience"
-          value={formData.experience}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., 5 years in IT sector"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <WorkIcon color="primary" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Grid>
-    </Grid>
-  );
-
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -515,7 +490,6 @@ const RegistrationPage: React.FC = () => {
       case 1:
         return (
           <>
-            {renderEducationAndExperience()}
             <TextField
               fullWidth
               label="Aadhaar Number"
@@ -525,7 +499,7 @@ const RegistrationPage: React.FC = () => {
               required
               margin="normal"
               error={!!errors.aadhaarNumber}
-              helperText={errors.aadhaarNumber || 'Your Aadhaar number will be verified via OTP'}
+              helperText={errors.aadhaarNumber}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -554,11 +528,6 @@ const RegistrationPage: React.FC = () => {
                 ),
               }}
             />
-          </>
-        );
-      case 2:
-        return (
-          <>
             {renderAadhaarUpload()}
             {renderFileUpload()}
           </>

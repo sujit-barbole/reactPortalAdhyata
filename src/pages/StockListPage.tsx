@@ -25,14 +25,15 @@ import {
   Grid,
   InputAdornment,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Search as SearchIcon, Clear as ClearIcon, Filter as FilterIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Search as SearchIcon, Clear as ClearIcon, Filter as FilterIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import AdminLayout from '../components/AdminLayout';
 
 interface Stock {
-  id: string;
+  id?: string;
   stockExchange: string;
   index: string;
   stockName: string;
+  name?: string;
 }
 
 interface Exchange {
@@ -86,19 +87,24 @@ const StockListPage: React.FC = () => {
   ]);
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogType, setDialogType] = useState<'exchange' | 'index' | 'stock' | null>(null);
+  const [dialogType, setDialogType] = useState<'exchange' | 'index' | 'stock'>('stock');
   const [editingStock, setEditingStock] = useState<Stock | null>(null);
-  const [formData, setFormData] = useState<Partial<Stock & Exchange & Index>>({
+  const [formData, setFormData] = useState<Stock>({
+    id: '',
     stockExchange: '',
     index: '',
     stockName: '',
     name: ''
   });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    stockExchange: '',
-    index: ''
-  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedExchange, setSelectedExchange] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState('');
+
+  // Add state variables for confirmation dialog
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDialogType, setConfirmDialogType] = useState<'edit' | 'delete' | null>(null);
+  const [stockToAction, setStockToAction] = useState<Stock | null>(null);
 
   const stockExchanges = ['NSE', 'BSE'];
   const indicesForExchanges = {
@@ -110,10 +116,17 @@ const StockListPage: React.FC = () => {
     setDialogType(type);
     if (stock) {
       setEditingStock(stock);
-      setFormData(stock);
+      setFormData({
+        id: stock.id,
+        stockExchange: stock.stockExchange,
+        index: stock.index,
+        stockName: stock.stockName,
+        name: stock.name || ''
+      });
     } else {
       setEditingStock(null);
       setFormData({
+        id: '',
         stockExchange: '',
         index: '',
         stockName: '',
@@ -123,11 +136,49 @@ const StockListPage: React.FC = () => {
     setOpenDialog(true);
   };
 
+  // Add function to handle edit confirmation
+  const handleEditClick = (stock: Stock) => {
+    setStockToAction(stock);
+    setConfirmDialogType('edit');
+    setConfirmDialogOpen(true);
+  };
+  
+  // Add function to handle delete confirmation
+  const handleDeleteClick = (stock: Stock) => {
+    setStockToAction(stock);
+    setConfirmDialogType('delete');
+    setConfirmDialogOpen(true);
+  };
+  
+  // Add function to handle confirmation dialog close
+  const handleConfirmDialogClose = () => {
+    setConfirmDialogOpen(false);
+    setConfirmDialogType(null);
+    setStockToAction(null);
+  };
+  
+  // Add function to handle confirmation dialog confirm
+  const handleConfirmDialogConfirm = () => {
+    if (confirmDialogType === 'edit' && stockToAction) {
+      // Close confirmation dialog and open edit dialog
+      setConfirmDialogOpen(false);
+      setConfirmDialogType(null);
+      handleOpenDialog('stock', stockToAction);
+    } else if (confirmDialogType === 'delete' && stockToAction) {
+      // Delete the stock
+      setStocks(stocks.filter(stock => stock.id !== stockToAction.id));
+      setConfirmDialogOpen(false);
+      setConfirmDialogType(null);
+      setStockToAction(null);
+    }
+  };
+
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setDialogType(null);
+    setDialogType('stock');
     setEditingStock(null);
     setFormData({
+      id: '',
       stockExchange: '',
       index: '',
       stockName: '',
@@ -152,11 +203,11 @@ const StockListPage: React.FC = () => {
     } else if (dialogType === 'stock') {
       if (editingStock) {
         setStocks(stocks.map(stock => 
-          stock.id === editingStock.id ? { ...stock, ...formData } : stock
+          stock.id === editingStock.id ? { ...stock, ...formData, id: editingStock.id } : stock
         ));
       } else {
         const newStock: Stock = {
-          ...formData as Stock,
+          ...formData,
           id: (stocks.length + 1).toString()
         };
         setStocks([...stocks, newStock]);
@@ -169,8 +220,8 @@ const StockListPage: React.FC = () => {
     let filteredStocks = stocks;
 
     // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    if (searchTerm) {
+      const query = searchTerm.toLowerCase();
       filteredStocks = filteredStocks.filter(stock => 
         stock.stockName.toLowerCase().includes(query) ||
         stock.index.toLowerCase().includes(query)
@@ -178,11 +229,11 @@ const StockListPage: React.FC = () => {
     }
 
     // Apply other filters
-    if (filters.stockExchange) {
-      filteredStocks = filteredStocks.filter(stock => stock.stockExchange === filters.stockExchange);
+    if (selectedExchange) {
+      filteredStocks = filteredStocks.filter(stock => stock.stockExchange === selectedExchange);
     }
-    if (filters.index) {
-      filteredStocks = filteredStocks.filter(stock => stock.index === filters.index);
+    if (selectedIndex) {
+      filteredStocks = filteredStocks.filter(stock => stock.index === selectedIndex);
     }
 
     return filteredStocks;
@@ -209,7 +260,7 @@ const StockListPage: React.FC = () => {
             fullWidth
             label="Exchange Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, id: formData.id, name: e.target.value })}
             sx={{ mb: 2 }}
           />
         );
@@ -221,7 +272,7 @@ const StockListPage: React.FC = () => {
               <Select
                 value={formData.stockExchange}
                 label="Stock Exchange"
-                onChange={(e) => setFormData({ ...formData, stockExchange: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, id: formData.id, stockExchange: e.target.value })}
               >
                 {exchanges.map((exchange) => (
                   <MenuItem key={exchange.id} value={exchange.id}>
@@ -234,7 +285,7 @@ const StockListPage: React.FC = () => {
               fullWidth
               label="Index Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, id: formData.id, name: e.target.value })}
               sx={{ mb: 2 }}
             />
           </>
@@ -247,7 +298,7 @@ const StockListPage: React.FC = () => {
               <Select
                 value={formData.stockExchange}
                 label="Stock Exchange"
-                onChange={(e) => setFormData({ ...formData, stockExchange: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, id: formData.id, stockExchange: e.target.value })}
               >
                 {exchanges.map((exchange) => (
                   <MenuItem key={exchange.id} value={exchange.name}>
@@ -261,7 +312,7 @@ const StockListPage: React.FC = () => {
               <Select
                 value={formData.index}
                 label="Index"
-                onChange={(e) => setFormData({ ...formData, index: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, id: formData.id, index: e.target.value })}
               >
                 {indices
                   .filter(index => index.exchangeId === exchanges.find(e => e.name === formData.stockExchange)?.id)
@@ -276,7 +327,7 @@ const StockListPage: React.FC = () => {
               fullWidth
               label="Stock Name"
               value={formData.stockName}
-              onChange={(e) => setFormData({ ...formData, stockName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, id: formData.id, stockName: e.target.value })}
               sx={{ mb: 2 }}
             />
           </>
@@ -386,15 +437,13 @@ const StockListPage: React.FC = () => {
               <Button
                 startIcon={<ClearIcon />}
                 onClick={() => {
-                  setSearchQuery('');
-                  setFilters({
-                    stockExchange: '',
-                    index: ''
-                  });
+                  setSearchTerm('');
+                  setSelectedExchange('');
+                  setSelectedIndex('');
                 }}
                 size="small"
                 color="primary"
-                disabled={!searchQuery && !filters.stockExchange && !filters.index}
+                disabled={!searchTerm && !selectedExchange && !selectedIndex}
               >
                 Reset All Filters
               </Button>
@@ -404,19 +453,19 @@ const StockListPage: React.FC = () => {
                 <TextField
                   fullWidth
                   placeholder="Search by stock name or index..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
                         <SearchIcon color="action" />
                       </InputAdornment>
                     ),
-                    endAdornment: searchQuery && (
+                    endAdornment: searchTerm && (
                       <InputAdornment position="end">
                         <IconButton
                           size="small"
-                          onClick={() => setSearchQuery('')}
+                          onClick={() => setSearchTerm('')}
                           edge="end"
                         >
                           <ClearIcon fontSize="small" />
@@ -430,19 +479,19 @@ const StockListPage: React.FC = () => {
                 <FormControl fullWidth>
                   <InputLabel>Stock Exchange</InputLabel>
                   <Select
-                    value={filters.stockExchange}
+                    value={selectedExchange}
                     label="Stock Exchange"
-                    onChange={(e) => setFilters({ ...filters, stockExchange: e.target.value })}
+                    onChange={(e) => setSelectedExchange(e.target.value)}
                     startAdornment={
                       <InputAdornment position="start">
                         <FilterIcon color="action" />
                       </InputAdornment>
                     }
                     endAdornment={
-                      filters.stockExchange && (
+                      selectedExchange && (
                         <IconButton
                           size="small"
-                          onClick={() => setFilters({ ...filters, stockExchange: '' })}
+                          onClick={() => setSelectedExchange('')}
                           sx={{ mr: 2 }}
                         >
                           <ClearIcon fontSize="small" />
@@ -463,19 +512,19 @@ const StockListPage: React.FC = () => {
                 <FormControl fullWidth>
                   <InputLabel>Index</InputLabel>
                   <Select
-                    value={filters.index}
+                    value={selectedIndex}
                     label="Index"
-                    onChange={(e) => setFilters({ ...filters, index: e.target.value })}
+                    onChange={(e) => setSelectedIndex(e.target.value)}
                     startAdornment={
                       <InputAdornment position="start">
                         <FilterIcon color="action" />
                       </InputAdornment>
                     }
                     endAdornment={
-                      filters.index && (
+                      selectedIndex && (
                         <IconButton
                           size="small"
-                          onClick={() => setFilters({ ...filters, index: '' })}
+                          onClick={() => setSelectedIndex('')}
                           sx={{ mr: 2 }}
                         >
                           <ClearIcon fontSize="small" />
@@ -485,7 +534,7 @@ const StockListPage: React.FC = () => {
                   >
                     <MenuItem value="">All Indices</MenuItem>
                     {indices
-                      .filter(index => index.exchangeId === exchanges.find(e => e.name === filters.stockExchange)?.id)
+                      .filter(index => index.exchangeId === exchanges.find(e => e.name === selectedExchange)?.id)
                       .map((index) => (
                         <MenuItem key={index.id} value={index.name}>
                           {index.name}
@@ -534,23 +583,22 @@ const StockListPage: React.FC = () => {
                   <TableCell>{stock.index}</TableCell>
                   <TableCell>{stock.stockName}</TableCell>
                   <TableCell>
-                    <Tooltip title="Edit Stock">
+                    <Box sx={{ display: 'flex', gap: 1 }}>
                       <IconButton
                         size="small"
-                        onClick={() => handleOpenDialog('stock', stock)}
-                        sx={{ 
-                          bgcolor: 'primary.main',
-                          color: 'white',
-                          '&:hover': { 
-                            bgcolor: 'primary.dark',
-                            transform: 'scale(1.05)',
-                            transition: 'transform 0.2s'
-                          }
-                        }}
+                        onClick={() => handleEditClick(stock)}
+                        color="primary"
                       >
-                        <EditIcon fontSize="small" />
+                        <EditIcon />
                       </IconButton>
-                    </Tooltip>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteClick(stock)}
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
@@ -585,6 +633,34 @@ const StockListPage: React.FC = () => {
           </DialogActions>
         </Dialog>
       </Container>
+
+      {/* Add confirmation dialog */}
+      <Dialog open={confirmDialogOpen} onClose={handleConfirmDialogClose}>
+        <DialogTitle>
+          {confirmDialogType === 'edit' ? 'Edit Stock' : 'Delete Stock'}
+        </DialogTitle>
+        <DialogContent>
+          {confirmDialogType === 'edit' ? (
+            <Typography>
+              Are you sure you want to edit this stock?
+            </Typography>
+          ) : (
+            <Typography>
+              Are you sure you want to delete this stock? This action cannot be undone.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleConfirmDialogClose}>Cancel</Button>
+          <Button 
+            onClick={handleConfirmDialogConfirm}
+            color={confirmDialogType === 'delete' ? 'error' : 'primary'}
+            variant="contained"
+          >
+            {confirmDialogType === 'edit' ? 'Edit' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AdminLayout>
   );
 };

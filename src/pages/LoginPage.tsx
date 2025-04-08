@@ -25,6 +25,7 @@ import {
   VisibilityOff as VisibilityOffIcon,
   AccountCircle as AccountCircleIcon,
   ArrowForward as ArrowForwardIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,7 +39,7 @@ interface ForgotPasswordState {
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -57,25 +58,31 @@ const LoginPage: React.FC = () => {
 
   const handleLogin = () => {
     console.log('Login button clicked');
-    console.log('Email:', email);
+    console.log('Username or Email:', usernameOrEmail);
     console.log('Password:', password);
     
-    if (!email || !password) {
-      setError('Please enter both email and password');
+    if (!usernameOrEmail || !password) {
+      setError('Please enter both username/email and password');
       return;
     }
-
+    
     // Direct login without async/await
-    login(email, password)
+    login(usernameOrEmail, password)
       .then(() => {
         console.log('Login successful');
         
         // Manually navigate based on credentials
-        if (email === 'admin@gmail.com' && password === 'admin') {
+        if (usernameOrEmail === 'admin@gmail.com' && password === 'admin') {
           navigate('/admindashboard');
-        } else if (email === 'ta@gmail.com' && password === 'ta') {
+        } else if (usernameOrEmail === 'ta@gmail.com' && password === 'ta') {
           navigate('/tadashboard');
-        } else if (email === 'nta@gmail.com' && password === 'nta') {
+        } else if (usernameOrEmail === 'nta@gmail.com' && password === 'nta') {
+          navigate('/nonverifiedtadashboard');
+        } else if (usernameOrEmail === 'admin' && password === 'admin') {
+          navigate('/admindashboard');
+        } else if (usernameOrEmail === 'ta' && password === 'ta') {
+          navigate('/tadashboard');
+        } else if (usernameOrEmail === 'nta' && password === 'nta') {
           navigate('/nonverifiedtadashboard');
         }
       })
@@ -263,6 +270,32 @@ const LoginPage: React.FC = () => {
         py: { xs: 4, sm: 6, md: 8 },
         bgcolor: 'background.default',
         background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.1), transparent 50%)',
+          animation: 'pulse 8s ease-in-out infinite',
+        },
+        '@keyframes pulse': {
+          '0%': {
+            transform: 'scale(1)',
+            opacity: 0.5,
+          },
+          '50%': {
+            transform: 'scale(1.1)',
+            opacity: 0.8,
+          },
+          '100%': {
+            transform: 'scale(1)',
+            opacity: 0.5,
+          },
+        },
       }}
     >
       <Container maxWidth="sm">
@@ -272,6 +305,45 @@ const LoginPage: React.FC = () => {
             width: '100%',
             p: { xs: 3, sm: 4, md: 5 },
             borderRadius: 2,
+            bgcolor: 'background.paper',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'blur(10px)',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #1976d2, #64b5f6)',
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '100px',
+              height: '100px',
+              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.1) 0%, transparent 70%)',
+              transform: 'translate(50%, -50%)',
+              borderRadius: '50%',
+              animation: 'float 6s ease-in-out infinite',
+            },
+            '@keyframes float': {
+              '0%': {
+                transform: 'translate(50%, -50%) scale(1)',
+              },
+              '50%': {
+                transform: 'translate(50%, -50%) scale(1.2)',
+              },
+              '100%': {
+                transform: 'translate(50%, -50%) scale(1)',
+              },
+            },
           }}
         >
           <Box sx={{ 
@@ -279,12 +351,26 @@ const LoginPage: React.FC = () => {
             flexDirection: 'column', 
             alignItems: 'center', 
             mb: 4,
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '120px',
+              height: '120px',
+              background: 'radial-gradient(circle, rgba(25, 118, 210, 0.05) 0%, transparent 70%)',
+              borderRadius: '50%',
+              zIndex: -1,
+            }
           }}>
             <AccountCircleIcon 
               sx={{ 
                 fontSize: 48, 
                 color: 'primary.main',
                 mb: 2,
+                animation: 'bounce 2s ease-in-out infinite',
               }} 
             />
             <Typography 
@@ -294,6 +380,12 @@ const LoginPage: React.FC = () => {
               sx={{ 
                 fontWeight: 'bold',
                 color: 'primary.main',
+                fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                width: '100%',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
             >
               Welcome Back
@@ -321,15 +413,15 @@ const LoginPage: React.FC = () => {
 
           <TextField
             fullWidth
-            label="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            label="Username or Email"
+            value={usernameOrEmail}
+            onChange={(e) => setUsernameOrEmail(e.target.value)}
             required
             margin="normal"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <EmailIcon color="primary" />
+                  <PersonIcon color="primary" />
                 </InputAdornment>
               ),
             }}
