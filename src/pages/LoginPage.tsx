@@ -26,8 +26,10 @@ import {
   AccountCircle as AccountCircleIcon,
   ArrowForward as ArrowForwardIcon,
   Person as PersonIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/api';
 
 interface ForgotPasswordState {
   email: string;
@@ -43,6 +45,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   // Forgot Password State
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -56,40 +59,21 @@ const LoginPage: React.FC = () => {
 
   const steps = ['Enter Email', 'Verify OTP', 'Reset Password'];
 
-  const handleLogin = () => {
-    console.log('Login button clicked');
-    console.log('Username or Email:', usernameOrEmail);
-    console.log('Password:', password);
-    
-    if (!usernameOrEmail || !password) {
-      setError('Please enter both username/email and password');
-      return;
+  const handleLogin = async () => {
+    try {
+      if (!usernameOrEmail || !password) {
+        setError('Please enter both username/email and password');
+        setShowErrorDialog(true);
+        return;
+      }
+
+      await login(usernameOrEmail, password);
+      navigate('/tadashboard');
+    } catch (error) {
+      console.error('Login failed:', error);
+      setError((error as Error).message || 'Login failed. Please try again.');
+      setShowErrorDialog(true);
     }
-    
-    // Direct login without async/await
-    login(usernameOrEmail, password)
-      .then(() => {
-        console.log('Login successful');
-        
-        // Manually navigate based on credentials
-        if (usernameOrEmail === 'admin@gmail.com' && password === 'admin') {
-          navigate('/admindashboard');
-        } else if (usernameOrEmail === 'ta@gmail.com' && password === 'ta') {
-          navigate('/tadashboard');
-        } else if (usernameOrEmail === 'nta@gmail.com' && password === 'nta') {
-          navigate('/nonverifiedtadashboard');
-        } else if (usernameOrEmail === 'admin' && password === 'admin') {
-          navigate('/admindashboard');
-        } else if (usernameOrEmail === 'ta' && password === 'ta') {
-          navigate('/tadashboard');
-        } else if (usernameOrEmail === 'nta' && password === 'nta') {
-          navigate('/nonverifiedtadashboard');
-        }
-      })
-      .catch((error) => {
-        console.error('Login failed:', error);
-        setError('Invalid credentials. Please try again.');
-      });
   };
 
   // Forgot Password Handlers
@@ -156,6 +140,90 @@ const LoginPage: React.FC = () => {
       alert('Failed to reset password. Please try again.');
     }
   };
+
+  const handleCloseErrorDialog = () => {
+    setShowErrorDialog(false);
+  };
+
+  const renderErrorDialog = () => (
+    <Dialog
+      open={showErrorDialog}
+      onClose={handleCloseErrorDialog}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          p: 4,
+          maxWidth: '480px',
+          m: 2
+        }
+      }}
+    >
+      <DialogContent sx={{ textAlign: 'center', p: 0 }}>
+        <Box 
+          sx={{ 
+            mb: 3,
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            bgcolor: 'rgba(211, 47, 47, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mx: 'auto'
+          }}
+        >
+          <ErrorIcon 
+            sx={{ 
+              fontSize: 40,
+              color: '#d32f2f'
+            }} 
+          />
+        </Box>
+        <Typography 
+          variant="h5" 
+          gutterBottom 
+          sx={{ 
+            fontWeight: 600, 
+            color: '#1A1A1A',
+            fontSize: '24px',
+            lineHeight: 1.3,
+            mb: 1
+          }}
+        >
+          Access Denied
+        </Typography>
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            color: '#666666',
+            fontSize: '16px',
+            mb: 3,
+            lineHeight: 1.5
+          }}
+        >
+          {error}
+        </Typography>
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={handleCloseErrorDialog}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 2,
+              minWidth: 120,
+              py: 1.5,
+              fontSize: '16px',
+              fontWeight: 500
+            }}
+          >
+            Close
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
 
   const renderStepContent = () => {
     switch (activeStep) {
@@ -283,7 +351,7 @@ const LoginPage: React.FC = () => {
           animation: 'pulse 8s ease-in-out infinite',
         },
         '@keyframes pulse': {
-          '0%': {
+          from: {
             transform: 'scale(1)',
             opacity: 0.5,
           },
@@ -291,7 +359,7 @@ const LoginPage: React.FC = () => {
             transform: 'scale(1.1)',
             opacity: 0.8,
           },
-          '100%': {
+          to: {
             transform: 'scale(1)',
             opacity: 0.5,
           },
@@ -400,17 +468,6 @@ const LoginPage: React.FC = () => {
             </Typography>
           </Box>
 
-          {error && (
-            <Typography 
-              variant="body2" 
-              color="error" 
-              align="center"
-              sx={{ mb: 2 }}
-            >
-              {error}
-            </Typography>
-          )}
-
           <TextField
             fullWidth
             label="Username or Email"
@@ -506,6 +563,7 @@ const LoginPage: React.FC = () => {
               Forgot Password?
             </Link>
           </Box>
+          {renderErrorDialog()}
         </Paper>
 
         {/* Forgot Password Dialog */}

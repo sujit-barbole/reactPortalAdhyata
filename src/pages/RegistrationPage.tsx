@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -16,7 +17,7 @@ import {
   InputAdornment,
   Stepper,
   Step,
-  StepLabel,
+  StepLabel, Alert, Snackbar
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -28,35 +29,31 @@ import {
   CreditCard as CardIcon,
   ArrowForward as ArrowForwardIcon,
   ArrowBack as ArrowBackIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
 } from '@mui/icons-material';
+import { apiService, RegistrationFormData } from '../services/api';
 
 interface FormData {
-  nsimNumber: string;
   aadhaarNumber: string;
-  fullName: string;
+  name: string;
   email: string;
   username: string;
   phoneNumber: string;
-  experience: string;
-  education: string;
   password: string;
   confirmPassword: string;
 }
 
 const initialFormData: FormData = {
-  nsimNumber: '',
   aadhaarNumber: '',
-  fullName: '',
+  name: '',
   email: '',
   username: '',
   phoneNumber: '',
-  experience: '',
-  education: '',
   password: '',
   confirmPassword: ''
 };
 
-const steps = ['Personal Information', 'Document Upload'];
+const steps = ['Personal Information', 'NSIM Certificate', 'Aadhaar Verification'];
 
 const RegistrationPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,13 +63,27 @@ const RegistrationPage: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [openTerms, setOpenTerms] = useState(false);
   const [openPrivacy, setOpenPrivacy] = useState(false);
+  const [openSuccessDialog, setOpenSuccessDialog] = useState(false);
   const [errors, setErrors] = useState({
     aadhaarNumber: '',
     phoneNumber: '',
     password: '',
     confirmPassword: ''
   });
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'error' | 'warning' | 'info' | 'success'>('error');
   const [activeStep, setActiveStep] = useState(0);
+  const [otp, setOtp] = useState('');
+  const [hasNsimCertificate, setHasNsimCertificate] = useState<boolean | null>(null);
+  const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
+  const [openOtpDialog, setOpenOtpDialog] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(165); // 2 minutes and 45 seconds
+  const [userId, setUserId] = useState<string>('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [registrationError, setRegistrationError] = useState('');
+  const [selectedButton, setSelectedButton] = useState<'yes' | 'no' | null>(null);
+  const navigate = useNavigate();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -144,11 +155,17 @@ const RegistrationPage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     // Remove any non-digit characters for phone and aadhaar
     let processedValue = value;
     if (name === 'phoneNumber' || name === 'aadhaarNumber') {
       processedValue = value.replace(/\D/g, '');
+      // Limit Aadhaar to 12 digits and phone to 10 digits
+      if (name === 'aadhaarNumber' && processedValue.length > 12) {
+        processedValue = processedValue.slice(0, 12);
+      } else if (name === 'phoneNumber' && processedValue.length > 10) {
+        processedValue = processedValue.slice(0, 10);
+      }
     }
 
     setFormData(prev => ({
@@ -158,9 +175,10 @@ const RegistrationPage: React.FC = () => {
 
     // Validate specific fields
     if (name === 'aadhaarNumber') {
+      const aadhaarError = validateAadhaarNumber(processedValue);
       setErrors(prev => ({
         ...prev,
-        aadhaarNumber: validateAadhaarNumber(processedValue)
+        aadhaarNumber: aadhaarError
       }));
     } else if (name === 'phoneNumber') {
       setErrors(prev => ({
@@ -185,7 +203,65 @@ const RegistrationPage: React.FC = () => {
     }
   };
 
+  const handleGetOtp = () => {
+    if (formData.aadhaarNumber.length === 12) {
+      setOpenOtpDialog(true);
+    } else {
+      alert('Please enter a valid 12-digit Aadhaar number.');
+    }
+  };
+
+  const handleCloseOtpDialog = () => {
+    setOpenOtpDialog(false);
+  };
+
+  const handleOtpSubmit = async () => {
+    try {
+      if (!otp || otp.length !== 6) {
+        alert('Please enter a valid 6-digit OTP');
+        return;
+      }
+
+      const response = await apiService.verifyOtp(Number(userId), otp);
+
+      if (response.status === 'SUCCESS') {
+        handleCloseOtpDialog();
+        setOpenSuccessDialog(true);
+        // Will navigate to login when success dialog is closed
+      } else {
+        alert(response.error || 'OTP verification failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('OTP verification failed:', error);
+      alert((error as Error).message || 'OTP verification failed. Please try again.');
+    }
+  };
+
+  const handleCloseSuccessDialog = () => {
+    setOpenSuccessDialog(false);
+    navigate('/login');
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      const response = await apiService.resendOtp(Number(userId));
+      if (response.status === 'SUCCESS' && response.data.isOtpSentToUser) {
+        setOtpTimer(165); // Reset timer
+        alert('OTP has been resent successfully.');
+      } else {
+        alert('Failed to resend OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to resend OTP:', error);
+      alert((error as Error).message || 'Failed to resend OTP. Please try again.');
+    }
+  };
+
   const handleNext = () => {
+    if (activeStep === 2 && !isAadhaarVerified) {
+      alert('Please verify Aadhaar before proceeding.');
+      return;
+    }
     setActiveStep((prevStep) => prevStep + 1);
   };
 
@@ -193,14 +269,10 @@ const RegistrationPage: React.FC = () => {
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (activeStep < steps.length - 1) {
-      handleNext();
-      return;
-    }
-
+  const handleRegisterSubmit = async () => {
     try {
+      setRegistrationError('');
+
       // Validate all fields before submission
       const aadhaarError = validateAadhaarNumber(formData.aadhaarNumber);
       const phoneError = validatePhoneNumber(formData.phoneNumber);
@@ -218,18 +290,59 @@ const RegistrationPage: React.FC = () => {
         return;
       }
 
-      if (!selectedFile || !selectedAadhaarFile) {
-        alert('Please upload all required documents');
+      // Only require NSIM certificate if user selected "Yes"
+      if (hasNsimCertificate === true && !selectedFile) {
+        setSnackbarMessage('Please upload NSIM certificate');
+        setSnackbarSeverity('warning');
+        setSnackbarOpen(true);
         return;
       }
 
-      // Here you would typically send the data to your backend
-      console.log('Form Data:', formData);
-      console.log('Selected Files:', { certificate: selectedFile, aadhaar: selectedAadhaarFile });
-      
+      // Prepare NSIM certificate data if available
+      let nsimCertificateData = null;
+      if (selectedFile) {
+        const reader = new FileReader();
+        nsimCertificateData = await new Promise<string | null>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(selectedFile);
+        });
+      }
+
+      // Create request data object
+      const requestData: RegistrationFormData = {
+        name: formData.name,
+        username: formData.username,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        aadhaarNumber: formData.aadhaarNumber,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        role: 'TRADING_ASSISTANT', // Set the role for registration
+        nsimCertificate: nsimCertificateData
+      };
+
+      // Call registration API
+      const response = await apiService.register(requestData);
+
+      if (response.status === 'SUCCESS' && response.data.isOtpSentToUser) {
+        setIsOtpSent(true);
+        setUserId(response.data.id.toString());
+        setOpenOtpDialog(true);
+      } else {
+        setRegistrationError('Failed to send OTP. Please try again.');
+        setSnackbarMessage(response.error || 'Failed to send OTP. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+
     } catch (error) {
       console.error('Registration failed:', error);
-      alert('Registration failed. Please try again.');
+      const errorMessage = (error as Error).message || 'Registration failed. Please try again.';
+      setRegistrationError(errorMessage);
+      setSnackbarMessage(errorMessage);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     }
   };
 
@@ -250,6 +363,33 @@ const RegistrationPage: React.FC = () => {
   const handleClosePrivacy = () => {
     setOpenPrivacy(false);
   };
+
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOtp(e.target.value);
+  };
+
+  // Function to format the timer
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // Start countdown timer when dialog opens
+  React.useEffect(() => {
+    if (openOtpDialog) {
+      const timer = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [openOtpDialog]);
 
   const renderFileUpload = () => (
     <FormControl fullWidth margin="normal">
@@ -275,12 +415,12 @@ const RegistrationPage: React.FC = () => {
           accept="image/*,.pdf"
           onChange={handleFileChange}
         />
-        <CloudUploadIcon 
-          sx={{ 
-            fontSize: { xs: 32, sm: 40 }, 
+        <CloudUploadIcon
+          sx={{
+            fontSize: { xs: 32, sm: 40 },
             color: 'text.secondary',
             mb: 1
-          }} 
+          }}
         />
         <Typography variant="body1">
           {selectedFile ? selectedFile.name : 'Drag and drop certificate here'}
@@ -289,8 +429,8 @@ const RegistrationPage: React.FC = () => {
           PDF, JPG or PNG (Max 5MB)
         </Typography>
       </Box>
-      <Button 
-        variant="text" 
+      <Button
+        variant="text"
         onClick={() => fileInputRef.current?.click()}
         sx={{ mt: 1 }}
       >
@@ -323,12 +463,12 @@ const RegistrationPage: React.FC = () => {
           accept="image/*,.pdf"
           onChange={handleAadhaarFileChange}
         />
-        <CloudUploadIcon 
-          sx={{ 
-            fontSize: { xs: 32, sm: 40 }, 
+        <CloudUploadIcon
+          sx={{
+            fontSize: { xs: 32, sm: 40 },
             color: 'text.secondary',
             mb: 1
-          }} 
+          }}
         />
         <Typography variant="body1">
           {selectedAadhaarFile ? selectedAadhaarFile.name : 'Upload Aadhaar Card'}
@@ -337,8 +477,8 @@ const RegistrationPage: React.FC = () => {
           PDF, JPG or PNG (Max 5MB)
         </Typography>
       </Box>
-      <Button 
-        variant="text" 
+      <Button
+        variant="text"
         onClick={() => aadhaarFileInputRef.current?.click()}
         sx={{ mt: 1 }}
       >
@@ -353,8 +493,8 @@ const RegistrationPage: React.FC = () => {
         <TextField
           fullWidth
           label="Full Name"
-          name="fullName"
-          value={formData.fullName}
+          name="name"
+          value={formData.name}
           onChange={handleInputChange}
           required
           margin="normal"
@@ -478,6 +618,74 @@ const RegistrationPage: React.FC = () => {
     </Grid>
   );
 
+  const renderOtpVerification = () => (
+    <TextField
+      fullWidth
+      label="Enter OTP"
+      name="otp"
+      value={otp}
+      onChange={handleOtpChange}
+      required
+      margin="normal"
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <LockIcon color="primary" />
+          </InputAdornment>
+        ),
+      }}
+    />
+  );
+
+  const renderNsimCertificateStep = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
+      <Typography variant="h6" gutterBottom align="center">
+        Do you have an NSIM certificate?
+      </Typography>
+      <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+        <Button
+          variant={selectedButton === 'yes' ? 'contained' : 'outlined'}
+          onClick={() => {
+            setSelectedButton('yes');
+            setHasNsimCertificate(true);
+          }}
+          sx={{
+            minWidth: '100px',
+            bgcolor: selectedButton === 'yes' ? 'primary.main' : 'transparent',
+            color: selectedButton === 'yes' ? 'white' : 'primary.main',
+            '&:hover': {
+              bgcolor: selectedButton === 'yes' ? 'primary.dark' : 'action.hover',
+            }
+          }}
+        >
+          Yes
+        </Button>
+        <Button
+          variant={selectedButton === 'no' ? 'contained' : 'outlined'}
+          onClick={() => {
+            setSelectedButton('no');
+            setHasNsimCertificate(false);
+          }}
+          sx={{
+            minWidth: '100px',
+            bgcolor: selectedButton === 'no' ? 'primary.main' : 'transparent',
+            color: selectedButton === 'no' ? 'white' : 'primary.main',
+            '&:hover': {
+              bgcolor: selectedButton === 'no' ? 'primary.dark' : 'action.hover',
+            }
+          }}
+        >
+          No
+        </Button>
+      </Box>
+      {hasNsimCertificate && (
+        <Box sx={{ mt: 4, width: '100%' }}>
+          {renderFileUpload()}
+        </Box>
+      )}
+    </Box>
+  );
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -488,6 +696,8 @@ const RegistrationPage: React.FC = () => {
           </>
         );
       case 1:
+        return renderNsimCertificateStep();
+      case 2:
         return (
           <>
             <TextField
@@ -499,7 +709,7 @@ const RegistrationPage: React.FC = () => {
               required
               margin="normal"
               error={!!errors.aadhaarNumber}
-              helperText={errors.aadhaarNumber}
+              helperText={errors.aadhaarNumber || 'Enter your 12-digit Aadhaar number'}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -512,24 +722,11 @@ const RegistrationPage: React.FC = () => {
                 }
               }}
             />
-            <TextField
-              fullWidth
-              label="NSIM Number"
-              name="nsimNumber"
-              value={formData.nsimNumber}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <BadgeIcon color="primary" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            {renderAadhaarUpload()}
-            {renderFileUpload()}
+            {isAadhaarVerified && (
+              <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
+                Aadhaar Verified Successfully
+              </Typography>
+            )}
           </>
         );
       default:
@@ -538,8 +735,8 @@ const RegistrationPage: React.FC = () => {
   };
 
   const renderTermsDialog = () => (
-    <Dialog 
-      open={openTerms} 
+    <Dialog
+      open={openTerms}
       onClose={handleCloseTerms}
       maxWidth="md"
       fullWidth
@@ -592,10 +789,10 @@ const RegistrationPage: React.FC = () => {
         </Typography>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
-        <Button 
+        <Button
           onClick={handleCloseTerms}
           variant="contained"
-          sx={{ 
+          sx={{
             textTransform: 'none',
             borderRadius: 1,
           }}
@@ -607,8 +804,8 @@ const RegistrationPage: React.FC = () => {
   );
 
   const renderPrivacyDialog = () => (
-    <Dialog 
-      open={openPrivacy} 
+    <Dialog
+      open={openPrivacy}
       onClose={handleClosePrivacy}
       maxWidth="md"
       fullWidth
@@ -661,10 +858,10 @@ const RegistrationPage: React.FC = () => {
         </Typography>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
-        <Button 
+        <Button
           onClick={handleClosePrivacy}
           variant="contained"
-          sx={{ 
+          sx={{
             textTransform: 'none',
             borderRadius: 1,
           }}
@@ -675,9 +872,238 @@ const RegistrationPage: React.FC = () => {
     </Dialog>
   );
 
+  const renderOtpDialog = () => (
+    <Dialog
+      open={openOtpDialog}
+      onClose={handleCloseOtpDialog}
+      maxWidth="xs"
+      fullWidth
+    >
+      <DialogTitle sx={{ textAlign: 'center' }}>
+        <LockIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+        <Typography variant="h6" sx={{ mt: 1 }}>
+          Verify Your Registration
+        </Typography>
+      </DialogTitle>
+      <DialogContent sx={{ textAlign: 'center' }}>
+        {isOtpSent ? (
+          <>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              An OTP has been sent to your registered mobile number
+            </Typography>
+            <TextField
+              fullWidth
+              label="Enter 6-digit OTP"
+              name="otp"
+              value={otp}
+              onChange={handleOtpChange}
+              required
+              margin="normal"
+              error={otp.length > 0 && otp.length !== 6}
+              helperText={otp.length > 0 && otp.length !== 6 ? 'OTP must be 6 digits' : ''}
+              InputProps={{
+                inputProps: {
+                  maxLength: 6,
+                  pattern: '[0-9]*',
+                  style: { textAlign: 'center', letterSpacing: '0.5em' }
+                }
+              }}
+            />
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              OTP expires in {formatTime(otpTimer)}
+            </Typography>
+          </>
+        ) : (
+          <Typography variant="body2" color="error">
+            {registrationError || 'Failed to send OTP. Please try again.'}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'center', flexDirection: 'column', pb: 3 }}>
+        {isOtpSent ? (
+          <>
+            <Button
+              onClick={handleOtpSubmit}
+              variant="contained"
+              sx={{ mb: 1, minWidth: 200 }}
+            >
+              Verify OTP
+            </Button>
+            <Typography variant="body2">
+              Didn't receive the OTP?{' '}
+              <Link
+                onClick={handleResendOtp}
+                sx={{
+                  cursor: 'pointer',
+                  color: 'primary.main',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+              >
+                Resend OTP
+              </Link>
+            </Typography>
+          </>
+        ) : (
+          <Button
+            onClick={handleRegisterSubmit}
+            variant="contained"
+            sx={{ minWidth: 200 }}
+          >
+            Try Again
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+
+  const renderSuccessDialog = () => (
+    <Dialog
+      open={openSuccessDialog}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          p: 4,
+          maxWidth: '480px',
+          m: 2
+        }
+      }}
+    >
+      <DialogContent sx={{ textAlign: 'center', p: 0 }}>
+        <Box
+          sx={{
+            mb: 3,
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            bgcolor: 'rgba(75, 210, 143, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mx: 'auto'
+          }}
+        >
+          <CheckCircleOutlineIcon
+            sx={{
+              fontSize: 40,
+              color: '#4BD28F'
+            }}
+          />
+        </Box>
+        <Typography
+          variant="h5"
+          gutterBottom
+          sx={{
+            fontWeight: 600,
+            color: '#1A1A1A',
+            fontSize: '24px',
+            lineHeight: 1.3,
+            mb: 1
+          }}
+        >
+          Registration Successful
+        </Typography>
+        <Typography
+          variant="body1"
+          sx={{
+            color: '#666666',
+            fontSize: '16px',
+            mb: 3,
+            lineHeight: 1.5
+          }}
+        >
+          Your information has been submitted for review
+        </Typography>
+        <Paper
+          elevation={0}
+          sx={{
+            bgcolor: '#FFF9E6',
+            py: 2,
+            px: 3,
+            borderRadius: 2,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 1.5,
+            minWidth: '300px'
+          }}
+        >
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: '#B98900'
+            }}
+          />
+          <Typography
+            variant="body1"
+            sx={{
+              color: '#B98900',
+              fontWeight: 500,
+              fontSize: '16px'
+            }}
+          >
+            Status: Pending Admin Approval
+          </Typography>
+        </Paper>
+        <Box sx={{ mt: 4 }}>
+          <Button
+            variant="contained"
+            onClick={handleCloseSuccessDialog}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 2,
+              minWidth: 200,
+              py: 1.5,
+              fontSize: '16px',
+              fontWeight: 500,
+              bgcolor: '#1976d2',
+              '&:hover': {
+                bgcolor: '#1565c0'
+              }
+            }}
+          >
+            Go to Login
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+
+  const renderSnackbar = () => (
+    <Snackbar
+      open={snackbarOpen}
+      autoHideDuration={6000}
+      onClose={handleSnackbarClose}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert
+        onClose={handleSnackbarClose}
+        severity={snackbarSeverity}
+        sx={{
+          width: '100%',
+          borderRadius: 2,
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+          '& .MuiAlert-icon': {
+            fontSize: '1.5rem'
+          }
+        }}
+      >
+        {snackbarMessage}
+      </Alert>
+    </Snackbar>
+  );
+
   return (
-    <Box 
-      sx={{ 
+    <Box
+      sx={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -698,7 +1124,7 @@ const RegistrationPage: React.FC = () => {
           animation: 'pulse 8s ease-in-out infinite',
         },
         '@keyframes pulse': {
-          '0%': {
+          from: {
             transform: 'scale(1)',
             opacity: 0.5,
           },
@@ -706,7 +1132,7 @@ const RegistrationPage: React.FC = () => {
             transform: 'scale(1.1)',
             opacity: 0.8,
           },
-          '100%': {
+          to: {
             transform: 'scale(1)',
             opacity: 0.5,
           },
@@ -714,11 +1140,11 @@ const RegistrationPage: React.FC = () => {
       }}
     >
       <Container maxWidth="md">
-        <Paper 
-          component="form" 
+        <Paper
+          component="form"
           onSubmit={handleRegisterSubmit}
           elevation={3}
-          sx={{ 
+          sx={{
             width: '100%',
             p: { xs: 3, sm: 4, md: 5 },
             borderRadius: 2,
@@ -763,10 +1189,10 @@ const RegistrationPage: React.FC = () => {
             },
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             mb: 4,
             position: 'relative',
             '&::before': {
@@ -782,19 +1208,19 @@ const RegistrationPage: React.FC = () => {
               zIndex: -1,
             }
           }}>
-            <PersonIcon 
-              sx={{ 
-                fontSize: 48, 
+            <PersonIcon
+              sx={{
+                fontSize: 48,
                 color: 'primary.main',
                 mb: 2,
                 animation: 'bounce 2s ease-in-out infinite',
-              }} 
+              }}
             />
-            <Typography 
-              variant="h4" 
-              component="h1" 
+            <Typography
+              variant="h4"
+              component="h1"
               align="center"
-              sx={{ 
+              sx={{
                 fontWeight: 'bold',
                 color: 'primary.main',
                 fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
@@ -807,9 +1233,9 @@ const RegistrationPage: React.FC = () => {
             >
               Register as Trusted Associate
             </Typography>
-            <Typography 
-              variant="subtitle1" 
-              color="text.secondary" 
+            <Typography
+              variant="subtitle1"
+              color="text.secondary"
               align="center"
               sx={{ mt: 1 }}
             >
@@ -817,9 +1243,9 @@ const RegistrationPage: React.FC = () => {
             </Typography>
           </Box>
 
-          <Stepper 
-            activeStep={activeStep} 
-            sx={{ 
+          <Stepper
+            activeStep={activeStep}
+            sx={{
               mb: 4,
               '& .MuiStepLabel-label': {
                 color: 'text.secondary',
@@ -855,8 +1281,9 @@ const RegistrationPage: React.FC = () => {
               Back
             </Button>
             <Button
-              type="submit"
+              type="button"
               variant="contained"
+              onClick={activeStep === steps.length - 1 ? handleRegisterSubmit : handleNext}
               endIcon={activeStep === steps.length - 1 ? null : <ArrowForwardIcon />}
               sx={{
                 textTransform: 'none',
@@ -869,18 +1296,18 @@ const RegistrationPage: React.FC = () => {
 
           {activeStep === 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
-              <Typography 
-                variant="body2" 
+              <Typography
+                variant="body2"
                 color="text.secondary"
-                sx={{ 
+                sx={{
                   fontSize: { xs: '0.75rem', sm: '0.875rem' }
                 }}
               >
                 Already have an account?{' '}
-                <Link 
-                  href="/login" 
-                  color="primary" 
-                  sx={{ 
+                <Link
+                  href="/login"
+                  color="primary"
+                  sx={{
                     textDecoration: 'none',
                     fontWeight: 500,
                     '&:hover': {
@@ -895,17 +1322,17 @@ const RegistrationPage: React.FC = () => {
           )}
 
           {activeStep === steps.length - 1 && (
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
+            <Typography
+              variant="body2"
+              color="text.secondary"
               align="center"
               sx={{ mt: 2, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
               By registering, you agree to our{' '}
-              <Link 
-                href="#" 
-                color="primary" 
-                sx={{ 
+              <Link
+                href="#"
+                color="primary"
+                sx={{
                   textDecoration: 'none',
                   '&:hover': {
                     textDecoration: 'underline'
@@ -916,10 +1343,10 @@ const RegistrationPage: React.FC = () => {
                 Terms of Service
               </Link>
               {' '}and{' '}
-              <Link 
-                href="#" 
-                color="primary" 
-                sx={{ 
+              <Link
+                href="#"
+                color="primary"
+                sx={{
                   textDecoration: 'none',
                   '&:hover': {
                     textDecoration: 'underline'
@@ -936,6 +1363,9 @@ const RegistrationPage: React.FC = () => {
 
       {renderTermsDialog()}
       {renderPrivacyDialog()}
+      {renderOtpDialog()}
+      {renderSuccessDialog()}
+      {renderSnackbar()}
     </Box>
   );
 };
