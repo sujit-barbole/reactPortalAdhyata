@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -47,6 +47,22 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
+  // Add this useEffect to handle navigation when userRole changes
+  useEffect(() => {
+    // Only navigate if we're authenticated (userRole is not null)
+    if (userRole) {
+      console.log('userRole changed, navigating based on role:', userRole);
+
+      if (userRole === 'admin') {
+        navigate('/admindashboard');
+      } else if (userRole === 'ta') {
+        navigate('/tadashboard');
+      } else if (userRole === 'nta') {
+        navigate('/nonverifiedtadashboard');
+      }
+    }
+  }, [userRole, navigate]); // This effect runs whenever userRole changes
+
   // Forgot Password State
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -67,18 +83,9 @@ const LoginPage: React.FC = () => {
         return;
       }
 
+      // Just call login - the useEffect will handle navigation when userRole updates
       await login(usernameOrEmail, password);
 
-      // Navigate based on user role
-      if (userRole === 'admin') {
-        navigate('/admindashboard');
-      } else if (userRole === 'ta') {
-        navigate('/tadashboard');
-      } else if (userRole === 'nta') {
-        navigate('/nonverifiedtadashboard');
-      } else {
-        navigate('/');
-      }
     } catch (error) {
       console.error('Login failed:', error);
       setError((error as Error).message || 'Login failed. Please try again.');
