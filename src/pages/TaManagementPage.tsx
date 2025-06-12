@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -22,13 +22,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   TextField,
   InputAdornment,
+  CircularProgress,
 } from '@mui/material';
-import { 
-  People as PeopleIcon, 
-  AccessTime as AccessTimeIcon, 
+import {
+  People as PeopleIcon,
+  AccessTime as AccessTimeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Verified as VerifiedIcon,
@@ -39,6 +39,8 @@ import {
   Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import AdminLayout from '../components/AdminLayout';
+import { adminService, TAUser, StudyResponse } from '../services/api/adminService';
+import { useAuth } from '../context/AuthContext';
 
 interface Bucket {
   name: string;
@@ -81,7 +83,11 @@ interface TARegistration {
   nsimNumber: string;
   registeredDate: string;
   registeredTime: string;
-  status: 'Pending' | 'Approved' | 'Declined' | 'Blocked';
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'INITIATED' | 'WAITING_FOR_OTP_FROM_TA' |
+  'PENDING_VERIFICATION_FROM_ADMIN' | 'APPROVED_BY_ADMIN' | 'REJECTED_BY_ADMIN' |
+  'PENDING_TA_AGREEMENT' | 'TA_AGREEMENT_INITIATED' | 'TA_AGREEMENT_SIGNED' |
+  'ADMIN_AGREEMENT_SIGNATURE_INITIATED' | 'ADMIN_AGREEMENT_SIGNATURE_SIGNED' |
+  'TA_AGREEMENT_REJECTED' | 'LOCKED';
   verification: 'OTP Verified' | 'Not Verified';
   initials: string;
   phone?: string;
@@ -90,7 +96,7 @@ interface TARegistration {
   education?: string;
   documents?: {
     aadhar: string;
-    nsim: string;
+    nsimDocumentKey: string;
   };
   allowedBuckets?: string[];
   pendingReconciliationAmount?: number;
@@ -99,129 +105,171 @@ interface TARegistration {
 // Add Study interface
 interface Study {
   id: number;
-  exchange: string;
-  index: string;
-  stock: string;
+  userId: number;
+  stockExchange: string;
+  stockName: string;
+  stockIndex: string;
   currentPrice: number;
-  action: 'BUY' | 'SELL';
   expectedPrice: number;
-  studyText: string;
-  submittedDate: string;
+  action: string;
+  analysis: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Add mock studies data
 const mockStudies: Study[] = [
   {
     id: 1,
-    exchange: 'NSE',
-    index: 'NIFTY 50',
-    stock: 'RELIANCE',
+    userId: 1,
+    stockExchange: 'NSE',
+    stockIndex: 'NIFTY 50',
+    stockName: 'RELIANCE',
     currentPrice: 2456.75,
-    action: 'BUY',
     expectedPrice: 2600.00,
-    studyText: 'Technical analysis suggests bullish trend...',
-    submittedDate: '2024-03-20',
+    action: 'BUY',
+    analysis: 'Technical analysis suggests bullish trend...',
+    createdAt: '2024-03-20T10:23:45',
+    updatedAt: '2024-03-20T10:23:45'
   },
   {
     id: 2,
-    exchange: 'BSE',
-    index: 'SENSEX',
-    stock: 'TCS',
+    userId: 1,
+    stockExchange: 'BSE',
+    stockIndex: 'SENSEX',
+    stockName: 'TCS',
     currentPrice: 3456.80,
-    action: 'SELL',
     expectedPrice: 3200.00,
-    studyText: 'Fundamental analysis indicates overvaluation...',
-    submittedDate: '2024-03-19',
-  },
+    action: 'SELL',
+    analysis: 'Fundamental analysis indicates overvaluation...',
+    createdAt: '2024-03-19T14:12:30',
+    updatedAt: '2024-03-19T14:12:30'
+  }
 ];
 
 const TaManagementPage: React.FC = () => {
+  const { userData } = useAuth(); // Get userData from AuthContext
   const [selectedTA, setSelectedTA] = useState<TARegistration | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Declined' | 'Blocked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'INITIATED' |
+    'WAITING_FOR_OTP_FROM_TA' | 'PENDING_VERIFICATION_FROM_ADMIN' |
+    'APPROVED_BY_ADMIN' | 'REJECTED_BY_ADMIN' | 'PENDING_TA_AGREEMENT' |
+    'TA_AGREEMENT_INITIATED' | 'TA_AGREEMENT_SIGNED' |
+    'ADMIN_AGREEMENT_SIGNATURE_INITIATED' | 'ADMIN_AGREEMENT_SIGNATURE_SIGNED' |
+    'TA_AGREEMENT_REJECTED' | 'LOCKED'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudy, setSelectedStudy] = useState<Study | null>(null);
   const [openStudyDialog, setOpenStudyDialog] = useState(false);
   const [openStudyDetailsDialog, setOpenStudyDetailsDialog] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [allTARegistrations, setAllTARegistrations] = useState<TAUser[]>([]);
+  const [openNsimLinkDialog, setOpenNsimLinkDialog] = useState(false);
+  const [nsimUsers, setNsimUsers] = useState<TAUser[]>([]);
+  const [selectedNsimUser, setSelectedNsimUser] = useState<TAUser | null>(null);
+  const [loadingNsimUsers, setLoadingNsimUsers] = useState(false);
+  const [studies, setStudies] = useState<Study[]>([]);
+  const [loadingStudies, setLoadingStudies] = useState(false);
+  const [studiesError, setStudiesError] = useState<string | null>(null);
 
-  // Update the mock data to include more TAs with different statuses
-  const allTARegistrations: TARegistration[] = [
-    {
-      id: '1',
-      name: 'Anil Sharma',
-      email: 'anil.sharma@example.com',
-      nsimNumber: 'NS-7834-2025',
-      registeredDate: 'Mar 21, 2025',
-      registeredTime: '10:23 AM',
-      status: 'Pending',
-      verification: 'Not Verified',
-      initials: 'AS',
-      phone: '+91 98765 43210',
-      address: '123, Street Name, City, State - 123456',
-      experience: '5 years in financial advisory',
-      education: 'MBA Finance',
-      documents: {
-        aadhar: 'aadhar_card.pdf',
-        nsim: 'nsim.pdf'
-      },
-      allowedBuckets: ["Basic Bucket", "Gold Bucket"],
-      pendingReconciliationAmount: 1000
-    },
-    {
-      id: '2',
-      name: 'Ravi Patel',
-      email: 'ravi.patel@example.com',
-      nsimNumber: 'NS-7836-2025',
-      registeredDate: 'Mar 20, 2025',
-      registeredTime: '4:12 PM',
-      status: 'Approved',
-      verification: 'Not Verified',
-      initials: 'RP'
-    },
-    {
-      id: '3',
-      name: 'Priya Singh',
-      email: 'priya.singh@example.com',
-      nsimNumber: 'NS-7838-2025',
-      registeredDate: 'Mar 19, 2025',
-      registeredTime: '2:30 PM',
-      status: 'Declined',
-      verification: 'Not Verified',
-      initials: 'PS'
-    },
-    {
-      id: '4',
-      name: 'Akash Singh',
-      email: 'akash.singh@example.com',
-      nsimNumber: 'NS-8998-2025',
-      registeredDate: 'Mar 19, 2025',
-      registeredTime: '2:30 PM',
-      status: 'Blocked',
-      verification: 'Not Verified',
-      initials: 'PS'
-    },
-    {
-      id: '5',
-      name: 'Meera Desai',
-      email: 'meera.desai@example.com',
-      nsimNumber: 'NS-9001-2025',
-      registeredDate: 'Mar 18, 2025',
-      registeredTime: '11:15 AM',
-      status: 'Approved',
-      verification: 'OTP Verified',
-      initials: 'MD',
-      phone: '+91 98765 43211',
-      address: '456, Street Name, City, State - 123456',
-      experience: '8 years in financial advisory',
-      education: 'MCom Finance',
-      documents: {
-        aadhar: 'aadhar_card.pdf',
-        nsim: 'nsim.pdf'
-      },
-      allowedBuckets: ["Basic Bucket", "Gold Bucket", "Platinum Bucket"],
-      pendingReconciliationAmount: 2500
+  // Define fetchTAs function outside of useEffect so it can be reused
+  const fetchTAs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminService.getUsersByRoleAndStatus('TRUSTED_ASSOCIATE');
+      if (response.status === 'SUCCESS' && response.data) {
+        setAllTARegistrations(response.data);
+      } else {
+        setError(response.error || 'Failed to fetch TA data');
+      }
+    } catch (error) {
+      setError((error as Error).message || 'An error occurred while fetching TA data');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Example of filtering by role and status
+  const fetchTAsByStatus = async (status: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminService.getUsersByRoleAndStatus('TRUSTED_ASSOCIATE', status);
+      if (response.status === 'SUCCESS' && response.data) {
+        setAllTARegistrations(response.data);
+      } else {
+        setError(response.error || 'Failed to fetch TA data');
+      }
+    } catch (error) {
+      setError((error as Error).message || 'An error occurred while fetching TA data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add the getFilteredTAs function to filter TAs based on search and status
+  const getFilteredTAs = (): TARegistration[] => {
+    let filtered = allTARegistrations.map(ta => ({
+      id: ta.id,
+      name: ta.name,
+      email: ta.email,
+      nsimNumber: ta.nsimNumber,
+      registeredDate: ta.registeredDate,
+      registeredTime: ta.registeredTime,
+      status: ta.status,
+      verification: ta.verification,
+      initials: ta.initials,
+      phone: ta.phoneNumber,
+      address: '',
+      experience: '',
+      education: '',
+      documents: {
+        aadhar: ta.aadhaarNumber,
+        nsimDocumentKey: ta.nsimDocumentKey
+      },
+      allowedBuckets: []
+    }));
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(ta => ta.status === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(ta =>
+        ta.name.toLowerCase().includes(query) ||
+        ta.email.toLowerCase().includes(query) ||
+        ta.nsimNumber.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  };
+
+  // Add the handleStatusFilterClick function inside the component
+  const handleStatusFilterClick = (status: 'all' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'INITIATED' |
+    'WAITING_FOR_OTP_FROM_TA' | 'PENDING_VERIFICATION_FROM_ADMIN' |
+    'APPROVED_BY_ADMIN' | 'REJECTED_BY_ADMIN' | 'PENDING_TA_AGREEMENT' |
+    'TA_AGREEMENT_INITIATED' | 'TA_AGREEMENT_SIGNED' |
+    'ADMIN_AGREEMENT_SIGNATURE_INITIATED' | 'ADMIN_AGREEMENT_SIGNATURE_SIGNED' |
+    'TA_AGREEMENT_REJECTED' | 'LOCKED') => {
+    setStatusFilter(status);
+
+    if (status === 'all') {
+      // Fetch all TAs without status filter
+      fetchTAs();
+    } else {
+      // Fetch TAs with the selected status
+      fetchTAsByStatus(status);
+    }
+  };
+
+  useEffect(() => {
+    fetchTAs();
+  }, []);
 
   // Function to calculate dashboard stats
   const getDashboardStats = () => {
@@ -231,31 +279,31 @@ const TaManagementPage: React.FC = () => {
 
     return {
       totalTAs: allTARegistrations.length,
-      newTAsThisMonth: allTARegistrations.filter(ta => 
+      newTAsThisMonth: allTARegistrations.filter(ta =>
         new Date(ta.registeredDate) >= firstDayOfMonth
       ).length,
-      pendingReview: allTARegistrations.filter(ta => 
-        ta.status === 'Pending'
+      pendingReview: allTARegistrations.filter(ta =>
+        ta.status === 'PENDING_VERIFICATION_FROM_ADMIN'
       ).length,
       updatedAgo: '10 minutes ago',
-      approved: allTARegistrations.filter(ta => 
-        ta.status === 'Approved'
+      approved: allTARegistrations.filter(ta =>
+        ta.status === 'APPROVED_BY_ADMIN' || ta.status === 'ACTIVE'
       ).length,
-      newThisWeek: allTARegistrations.filter(ta => 
+      newThisWeek: allTARegistrations.filter(ta =>
         new Date(ta.registeredDate) >= firstDayOfWeek
       ).length,
-      declined: allTARegistrations.filter(ta => 
-        ta.status === 'Declined'
+      declined: allTARegistrations.filter(ta =>
+        ta.status === 'REJECTED_BY_ADMIN' || ta.status === 'TA_AGREEMENT_REJECTED'
       ).length,
-      declinedToday: allTARegistrations.filter(ta => 
-        ta.status === 'Declined' && 
+      declinedToday: allTARegistrations.filter(ta =>
+        (ta.status === 'REJECTED_BY_ADMIN' || ta.status === 'TA_AGREEMENT_REJECTED') &&
         new Date(ta.registeredDate).toDateString() === new Date().toDateString()
       ).length,
-      blocked: allTARegistrations.filter(ta => 
-        ta.status === 'Blocked'
+      blocked: allTARegistrations.filter(ta =>
+        ta.status === 'SUSPENDED' || ta.status === 'LOCKED'
       ).length,
-      blockedToday: allTARegistrations.filter(ta => 
-        ta.status === 'Blocked' && 
+      blockedToday: allTARegistrations.filter(ta =>
+        (ta.status === 'SUSPENDED' || ta.status === 'LOCKED') &&
         new Date(ta.registeredDate).toDateString() === new Date().toDateString()
       ).length
     };
@@ -267,7 +315,28 @@ const TaManagementPage: React.FC = () => {
   const handleViewTA = (taId: string) => {
     const ta = allTARegistrations.find(reg => reg.id === taId);
     if (ta) {
-      setSelectedTA(ta);
+      // Convert TAUser to TARegistration for the modal
+      const taRegistration: TARegistration = {
+        id: ta.id,
+        name: ta.name,
+        email: ta.email,
+        nsimNumber: ta.nsimNumber,
+        registeredDate: ta.registeredDate,
+        registeredTime: ta.registeredTime,
+        status: ta.status, // Use the status directly without conversion
+        verification: ta.verification,
+        initials: ta.initials,
+        phone: ta.phoneNumber,
+        address: '',
+        experience: '',
+        education: '',
+        documents: {
+          aadhar: ta.aadhaarNumber,
+          nsimDocumentKey: ta.nsimDocumentKey
+        },
+        allowedBuckets: []
+      };
+      setSelectedTA(taRegistration);
       setIsDetailModalOpen(true);
     }
   };
@@ -277,49 +346,33 @@ const TaManagementPage: React.FC = () => {
     setSelectedTA(null);
   };
 
-  const handleApprove = (taId: string) => {
-    console.log('Approving TA:', taId);
-    // Add your approve logic here
-    handleCloseModal();
-  };
-
-  const handleDecline = (taId: string) => {
-    console.log('Declining TA:', taId);
-    // Add your decline logic here
-    handleCloseModal();
-  };
-
-  // Add filter handler
-  const handleStatusFilterClick = (status: 'all' | 'Pending' | 'Approved' | 'Declined' | 'Blocked') => {
-    setStatusFilter(status);
-  };
-
-  // Add filtered data getter
-  const getFilteredTAs = () => {
-    let filtered = allTARegistrations;
-    
-    // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(ta => ta.status === statusFilter);
+  const handleStatusChange = async (taId: string, newStatus: string) => {
+    if (!userData || !userData.id) {
+      console.error('Admin ID not found. User may not be logged in.');
+      return;
     }
-    
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(ta => 
-        ta.name.toLowerCase().includes(query) ||
-        ta.email.toLowerCase().includes(query) ||
-        ta.nsimNumber.toLowerCase().includes(query)
+
+    try {
+      const response = await adminService.updateTAStatus(
+        parseInt(taId),
+        newStatus,
+        userData.id // Pass the admin ID from userData
       );
-    }
-    
-    return filtered;
-  };
 
-  // Add new handler functions
-  const handleBlock = (taId: string) => {
-    console.log('Blocking TA:', taId);
-    // Add your block logic here
+      if (response.status === 'SUCCESS') {
+        setAllTARegistrations(prevTAs =>
+          prevTAs.map(ta =>
+            ta.id.toString() === taId
+              ? { ...ta, status: newStatus as any }
+              : ta
+          )
+        );
+      } else {
+        console.error(`Failed to update TA status to ${newStatus}:`, response.error);
+      }
+    } catch (error) {
+      console.error(`Error updating TA status to ${newStatus}:`, error);
+    }
     handleCloseModal();
   };
 
@@ -328,8 +381,26 @@ const TaManagementPage: React.FC = () => {
     // Add your OTP request logic here
   };
 
-  const handleViewStudies = () => {
-    setOpenStudyDialog(true);
+  const handleViewStudies = async () => {
+    if (!selectedTA) return;
+
+    setLoadingStudies(true);
+    setStudiesError(null);
+
+    try {
+      const response = await adminService.getStudiesByTaId(parseInt(selectedTA.id));
+
+      if (response.status === 'SUCCESS' && response.data) {
+        setStudies(response.data);
+        setOpenStudyDialog(true);
+      } else {
+        setStudiesError(response.error || 'Failed to fetch studies');
+      }
+    } catch (error) {
+      setStudiesError((error as Error).message || 'An error occurred while fetching studies');
+    } finally {
+      setLoadingStudies(false);
+    }
   };
 
   const handleCloseStudyDialog = () => {
@@ -346,6 +417,134 @@ const TaManagementPage: React.FC = () => {
     setSelectedStudy(null);
   };
 
+  const handleLinkNsimAndApprove = async (taId: string) => {
+    setLoadingNsimUsers(true);
+    try {
+      // Fetch users with NSIM documents
+      const response = await adminService.getUsersByRoleAndStatus('TRUSTED_ASSOCIATE');
+      if (response.status === 'SUCCESS' && response.data) {
+        // Filter users who have NSIM documents
+        const usersWithNsim = response.data.filter(user =>
+          user.nsimDocumentKey != null && user.nsimDocumentKey !== ''
+        );
+        setNsimUsers(usersWithNsim);
+        setOpenNsimLinkDialog(true);
+      } else {
+        setError(response.error || 'Failed to fetch users with NSIM documents');
+      }
+    } catch (error) {
+      setError((error as Error).message || 'An error occurred while fetching users with NSIM documents');
+    } finally {
+      setLoadingNsimUsers(false);
+    }
+  };
+
+  const handleCloseNsimLinkDialog = () => {
+    setOpenNsimLinkDialog(false);
+    setSelectedNsimUser(null);
+  };
+
+  const handleSelectNsimUser = (user: TAUser) => {
+    // If clicking on already selected user, deselect it
+    if (selectedNsimUser?.id === user.id) {
+      setSelectedNsimUser(null);
+    } else {
+      setSelectedNsimUser(user);
+    }
+  };
+
+  const handleConfirmNsimLink = async () => {
+    if (!selectedTA || !selectedNsimUser || !userData || !userData.id) {
+      console.error('Missing required data for NSIM linking');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await adminService.linkNsimCertificate(
+        parseInt(selectedTA.id),
+        parseInt(selectedNsimUser.id)
+      );
+
+      if (response.status === 'SUCCESS') {
+        // After successful linking, update the TA status to APPROVED_BY_ADMIN
+        const statusResponse = await adminService.updateTAStatus(
+          parseInt(selectedTA.id),
+          'APPROVED_BY_ADMIN',
+          userData.id
+        );
+
+        if (statusResponse.status === 'SUCCESS') {
+          // Update the local state
+          setAllTARegistrations(prevTAs =>
+            prevTAs.map(ta =>
+              ta.id === selectedTA.id
+                ? {
+                  ...ta,
+                  status: 'APPROVED_BY_ADMIN',
+                  nsimNumber: selectedNsimUser.nsimNumber,
+                  nsimDocumentKey: selectedNsimUser.nsimDocumentKey
+                }
+                : ta
+            )
+          );
+
+          // Close dialogs
+          setOpenNsimLinkDialog(false);
+          setIsDetailModalOpen(false);
+          setSelectedNsimUser(null);
+          setSelectedTA(null);
+
+          // Show success message
+          setError(null);
+        } else {
+          setError(statusResponse.error || 'Failed to update TA status after linking NSIM');
+        }
+      } else {
+        setError(response.error || 'Failed to link NSIM certificate');
+      }
+    } catch (error) {
+      setError((error as Error).message || 'An error occurred while linking NSIM certificate');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProceedWithAgreement = async (userId: string) => {
+    try {
+      setLoading(true);
+      const response = await adminService.eSignAgreementByAdmin(parseInt(userId));
+
+      if (response.status === 'SUCCESS' && response.data) {
+        // Update the local state
+        setAllTARegistrations(prevTAs =>
+          prevTAs.map(ta =>
+            ta.id === userId
+              ? { ...ta, status: 'ADMIN_AGREEMENT_SIGNATURE_INITIATED' }
+              : ta
+          )
+        );
+
+        // Close the detail modal
+        setIsDetailModalOpen(false);
+        setSelectedTA(null);
+
+        // Redirect to the e-sign URL
+        if (response.data.eSignUrl) {
+          window.open(response.data.eSignUrl, '_blank');
+        } else {
+          setError('E-sign URL not provided in the response');
+        }
+      } else {
+        setError(response.error || 'Failed to initiate e-sign agreement');
+      }
+    } catch (error) {
+      setError((error as Error).message || 'An error occurred while initiating e-sign agreement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <Container maxWidth="xl">
@@ -357,293 +556,312 @@ const TaManagementPage: React.FC = () => {
             Welcome back, Admin
           </Typography>
 
-          {/* Notifications */}
-          <Alert 
-            severity="warning" 
-            sx={{ mt: 3, mb: 4 }}
-          >
-            New TA Registration: There {dashboardStats.pendingReview === 1 ? 'is' : 'are'} {dashboardStats.pendingReview} pending registration{dashboardStats.pendingReview === 1 ? '' : 's'} requiring review.
-          </Alert>
-
-          {/* Stats Cards */}
-          <Grid container spacing={3} sx={{ mb: 8 }}>
-            {/* Total TAs */}
-            <Grid item xs={12} md={6} lg={2.4}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  height: 140,
-                  cursor: 'pointer',
-                  bgcolor: statusFilter === 'all' ? 'primary.light' : 'inherit',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                onClick={() => handleStatusFilterClick('all')}
-              >
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar sx={{ bgcolor: 'primary.light', mr: 2 }}>
-                    <PeopleIcon />
-                  </Avatar>
-                  <Typography variant="h6">Total TAs</Typography>
-                </Box>
-                <Typography variant="h3" component="div" gutterBottom>
-                  {dashboardStats.totalTAs}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {dashboardStats.newTAsThisMonth} new this month
-                </Typography>
-              </Paper>
-            </Grid>
-
-            {/* Pending Review */}
-            <Grid item xs={12} md={6} lg={2.4}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  height: 140,
-                  cursor: 'pointer',
-                  bgcolor: statusFilter === 'Pending' ? 'warning.light' : 'inherit',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                onClick={() => handleStatusFilterClick('Pending')}
-              >
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar sx={{ bgcolor: 'warning.light', mr: 2 }}>
-                    <AccessTimeIcon />
-                  </Avatar>
-                  <Typography variant="h6">Pending</Typography>
-                </Box>
-                <Typography variant="h3" component="div" gutterBottom>
-                  {dashboardStats.pendingReview}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Updated {dashboardStats.updatedAgo}
-                </Typography>
-              </Paper>
-            </Grid>
-
-            {/* Approved */}
-            <Grid item xs={12} md={6} lg={2.4}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  height: 140,
-                  cursor: 'pointer',
-                  bgcolor: statusFilter === 'Approved' ? 'success.light' : 'inherit',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                onClick={() => handleStatusFilterClick('Approved')}
-              >
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar sx={{ bgcolor: 'success.light', mr: 2 }}>
-                    <CheckCircleIcon />
-                  </Avatar>
-                  <Typography variant="h6">Approved</Typography>
-                </Box>
-                <Typography variant="h3" component="div" gutterBottom>
-                  {dashboardStats.approved}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {dashboardStats.newThisWeek} new this week
-                </Typography>
-              </Paper>
-            </Grid>
-
-            {/* Declined */}
-            <Grid item xs={12} md={6} lg={2.4}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  height: 140,
-                  cursor: 'pointer',
-                  bgcolor: statusFilter === 'Declined' ? 'error.light' : 'inherit',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                onClick={() => handleStatusFilterClick('Declined')}
-              >
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar sx={{ bgcolor: 'error.light', mr: 2 }}>
-                    <CancelIcon />
-                  </Avatar>
-                  <Typography variant="h6">Declined</Typography>
-                </Box>
-                <Typography variant="h3" component="div" gutterBottom>
-                  {dashboardStats.declined}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {dashboardStats.declinedToday} today
-                </Typography>
-              </Paper>
-            </Grid>
-
-            {/* Blocked */}
-            <Grid item xs={12} md={6} lg={2.4}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  height: 140,
-                  cursor: 'pointer',
-                  bgcolor: statusFilter === 'Blocked' ? 'error.light' : 'inherit',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                onClick={() => handleStatusFilterClick('Blocked')}
-              >
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar sx={{ bgcolor: 'error.light', mr: 2 }}>
-                    <CancelIcon />
-                  </Avatar>
-                  <Typography variant="h6">Blocked</Typography>
-                </Box>
-                <Typography variant="h3" component="div" gutterBottom>
-                  {dashboardStats.blocked}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {dashboardStats.blockedToday} today
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* Update the table section to include search */}
-          <Box sx={{ mt: 4 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              mb: 3,
-              gap: 2,
-              flexWrap: 'wrap'
-            }}>
-              <Typography variant="h6" component="h2">
-                {statusFilter === 'all' ? 'All TA Registrations' : `${statusFilter} TA Registrations`}
-              </Typography>
-              
-              <TextField
-                placeholder="Search by name, email, or NSIM number"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                variant="outlined"
-                size="small"
-                sx={{ 
-                  minWidth: 300,
-                  maxWidth: '100%',
-                  bgcolor: 'background.paper'
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+          {/* Display loading indicator */}
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
             </Box>
-            
-            <TableContainer component={Paper}>
-              <Table sx={{ minWidth: 650 }} aria-label="TA registrations table">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>NAME</TableCell>
-                    <TableCell>NSIM NUMBER</TableCell>
-                    <TableCell>REGISTERED</TableCell>
-                    <TableCell>STATUS & ACTIONS</TableCell>
-                    <TableCell>AADHAR VERIFICATION</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {getFilteredTAs().map((registration) => (
-                    <TableRow key={registration.id}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar sx={{ mr: 2, bgcolor: 'primary.light' }}>
-                            {registration.initials}
-                          </Avatar>
-                          <Stack>
-                            <Typography variant="body1">{registration.name}</Typography>
+          )}
+
+          {/* Display error message if any */}
+          {error && (
+            <Alert severity="error" sx={{ mt: 2, mb: 4 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Rest of the UI */}
+          {!loading && !error && (
+            <>
+              {/* Notifications */}
+              <Alert
+                severity="warning"
+                sx={{ mt: 3, mb: 4 }}
+              >
+                New TA Registration: There {dashboardStats.pendingReview === 1 ? 'is' : 'are'} {dashboardStats.pendingReview} pending registration{dashboardStats.pendingReview === 1 ? '' : 's'} requiring review.
+              </Alert>
+
+              {/* Stats Cards */}
+              <Grid container spacing={3} sx={{ mb: 8 }}>
+                {/* Total TAs */}
+                <Grid item xs={12} md={6} lg={2.4}>
+                  <Paper
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: 140,
+                      cursor: 'pointer',
+                      bgcolor: statusFilter === 'all' ? 'primary.light' : 'inherit',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    onClick={() => handleStatusFilterClick('all')}
+                  >
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ bgcolor: 'primary.light', mr: 2 }}>
+                        <PeopleIcon />
+                      </Avatar>
+                      <Typography variant="h6">Total TAs</Typography>
+                    </Box>
+                    <Typography variant="h3" component="div" gutterBottom>
+                      {dashboardStats.totalTAs}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {dashboardStats.newTAsThisMonth} new this month
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                {/* Pending Review */}
+                <Grid item xs={12} md={6} lg={2.4}>
+                  <Paper
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: 140,
+                      cursor: 'pointer',
+                      bgcolor: statusFilter === 'PENDING_VERIFICATION_FROM_ADMIN' ? 'warning.light' : 'inherit',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    onClick={() => handleStatusFilterClick('PENDING_VERIFICATION_FROM_ADMIN')}
+                  >
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ bgcolor: 'warning.light', mr: 2 }}>
+                        <AccessTimeIcon />
+                      </Avatar>
+                      <Typography variant="h6">Pending</Typography>
+                    </Box>
+                    <Typography variant="h3" component="div" gutterBottom>
+                      {dashboardStats.pendingReview}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Updated {dashboardStats.updatedAgo}
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                {/* Approved */}
+                <Grid item xs={12} md={6} lg={2.4}>
+                  <Paper
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: 140,
+                      cursor: 'pointer',
+                      bgcolor: statusFilter === 'APPROVED_BY_ADMIN' ? 'success.light' : 'inherit',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    onClick={() => handleStatusFilterClick('APPROVED_BY_ADMIN')}
+                  >
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ bgcolor: 'success.light', mr: 2 }}>
+                        <CheckCircleIcon />
+                      </Avatar>
+                      <Typography variant="h6">Approved</Typography>
+                    </Box>
+                    <Typography variant="h3" component="div" gutterBottom>
+                      {dashboardStats.approved}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {dashboardStats.newThisWeek} new this week
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                {/* Declined */}
+                <Grid item xs={12} md={6} lg={2.4}>
+                  <Paper
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: 140,
+                      cursor: 'pointer',
+                      bgcolor: statusFilter === 'REJECTED_BY_ADMIN' ? 'error.light' : 'inherit',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    onClick={() => handleStatusFilterClick('REJECTED_BY_ADMIN')}
+                  >
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ bgcolor: 'error.light', mr: 2 }}>
+                        <CancelIcon />
+                      </Avatar>
+                      <Typography variant="h6">Declined</Typography>
+                    </Box>
+                    <Typography variant="h3" component="div" gutterBottom>
+                      {dashboardStats.declined}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {dashboardStats.declinedToday} today
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                {/* Blocked */}
+                <Grid item xs={12} md={6} lg={2.4}>
+                  <Paper
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: 140,
+                      cursor: 'pointer',
+                      bgcolor: statusFilter === 'SUSPENDED' ? 'error.light' : 'inherit',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    onClick={() => handleStatusFilterClick('SUSPENDED')}
+                  >
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Avatar sx={{ bgcolor: 'error.light', mr: 2 }}>
+                        <CancelIcon />
+                      </Avatar>
+                      <Typography variant="h6">Suspended</Typography>
+                    </Box>
+                    <Typography variant="h3" component="div" gutterBottom>
+                      {dashboardStats.blocked}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {dashboardStats.blockedToday} today
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {/* Update the table section to include search */}
+              <Box sx={{ mt: 4 }}>
+                <Box sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 3,
+                  gap: 2,
+                  flexWrap: 'wrap'
+                }}>
+                  <Typography variant="h6" component="h2">
+                    {statusFilter === 'all' ? 'All TA Registrations' : `${statusFilter} TA Registrations`}
+                  </Typography>
+
+                  <TextField
+                    placeholder="Search by name, status, or email.  "
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      minWidth: 300,
+                      maxWidth: '100%',
+                      bgcolor: 'background.paper'
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+
+                <TableContainer component={Paper}>
+                  <Table sx={{ minWidth: 650 }} aria-label="TA registrations table">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>NAME</TableCell>
+                        {/* <TableCell>NSIM NUMBER</TableCell> */}
+                        <TableCell>REGISTERED</TableCell>
+                        <TableCell>STATUS & ACTIONS</TableCell>
+                        <TableCell>AADHAR VERIFICATION</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getFilteredTAs().map((registration) => (
+                        <TableRow key={registration.id}>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Avatar sx={{ mr: 2, bgcolor: 'primary.light' }}>
+                                {registration.initials}
+                              </Avatar>
+                              <Stack>
+                                <Typography variant="body1">{registration.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {registration.email}
+                                </Typography>
+                              </Stack>
+                            </Box>
+                          </TableCell>
+                          {/* <TableCell>{registration.nsimNumber}</TableCell> */}
+                          <TableCell>
+                            <Typography variant="body2">{registration.registeredDate}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {registration.email}
+                              {registration.registeredTime}
                             </Typography>
-                          </Stack>
-                        </Box>
-                      </TableCell>
-                      <TableCell>{registration.nsimNumber}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{registration.registeredDate}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {registration.registeredTime}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 2
-                        }}>
-                          <Tooltip title="View TA Details">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewTA(registration.id)}
-                              sx={{ 
-                                bgcolor: 'primary.main',
-                                color: 'white',
-                                width: '28px',
-                                height: '28px',
-                                '&:hover': {
-                                  bgcolor: 'primary.dark',
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2
+                            }}>
+                              <Tooltip title="View TA Details">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewTA(registration.id)}
+                                  sx={{
+                                    bgcolor: 'primary.main',
+                                    color: 'white',
+                                    width: '28px',
+                                    height: '28px',
+                                    '&:hover': {
+                                      bgcolor: 'primary.dark',
+                                    }
+                                  }}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Chip
+                                label={registration.status}
+                                color={
+                                  registration.status === 'PENDING_VERIFICATION_FROM_ADMIN' ? 'warning' :
+                                    registration.status === 'APPROVED_BY_ADMIN' || registration.status === 'ACTIVE' ? 'success' :
+                                      registration.status === 'SUSPENDED' || registration.status === 'LOCKED' ? 'error' : 'default'
                                 }
-                              }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Chip 
-                            label={registration.status} 
-                            color={
-                              registration.status === 'Pending' ? 'warning' : 
-                              registration.status === 'Approved' ? 'success' : 
-                              registration.status === 'Blocked' ? 'error' : 'default'
-                            } 
-                            sx={{
-                              ...(registration.status === 'Declined' && {
-                                bgcolor: 'grey.200',
-                                color: 'grey.700',
-                                borderColor: 'grey.400',
-                                '&:hover': {
-                                  bgcolor: 'grey.300',
-                                }
-                              }),
-                              height: '28px'
-                            }}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {registration.verification === 'OTP Verified' ? (
-                            <VerifiedIcon color="success" sx={{ mr: 1 }} />
-                          ) : (
-                            <UnverifiedIcon color="error" sx={{ mr: 1 }} />
-                          )}
-                          <Typography variant="body2">{registration.verification}</Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
+                                sx={{
+                                  ...(registration.status === 'REJECTED_BY_ADMIN' || registration.status === 'TA_AGREEMENT_REJECTED' ? {
+                                    bgcolor: 'grey.200',
+                                    color: 'grey.700',
+                                    borderColor: 'grey.400',
+                                    '&:hover': {
+                                      bgcolor: 'grey.300',
+                                    }
+                                  } : {}),
+                                  height: '28px'
+                                }}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              {registration.verification === 'OTP Verified' ? (
+                                <VerifiedIcon color="success" sx={{ mr: 1 }} />
+                              ) : (
+                                <UnverifiedIcon color="error" sx={{ mr: 1 }} />
+                              )}
+                              <Typography variant="body2">{registration.verification}</Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            </>
+          )}
         </Box>
       </Container>
 
@@ -693,18 +911,18 @@ const TaManagementPage: React.FC = () => {
                         </Typography>
                         <Typography variant="body1">{selectedTA.phone}</Typography>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      {/* <Grid item xs={12} sm={6}>
                         <Typography variant="subtitle2" color="text.secondary">
                           NSIM Number
                         </Typography>
                         <Typography variant="body1">{selectedTA.nsimNumber}</Typography>
-                      </Grid>
+                      </Grid> */}
                     </Grid>
                   </Paper>
                 </Grid>
 
                 {/* Professional Information */}
-                <Grid item xs={12}>
+                {/* <Grid item xs={12}>
                   <Typography variant="h6" color="primary" gutterBottom>
                     Professional Information
                   </Typography>
@@ -726,7 +944,7 @@ const TaManagementPage: React.FC = () => {
                         <Typography variant="subtitle2" color="text.secondary">
                           Total amount on which reconciliation has not initiated
                         </Typography>
-                        <Typography 
+                        <Typography
                           variant="body1"
                           sx={{
                             color: (selectedTA.pendingReconciliationAmount || 0) >= 0 ? '#2e7d32' : '#d32f2f',
@@ -738,7 +956,7 @@ const TaManagementPage: React.FC = () => {
                       </Grid>
                     </Grid>
                   </Paper>
-                </Grid>
+                </Grid> */}
 
                 {/* Documents */}
                 <Grid item xs={12}>
@@ -772,13 +990,13 @@ const TaManagementPage: React.FC = () => {
                     <Grid container spacing={3}>
                       {availableBuckets.map((bucket) => {
                         const isAllowed = selectedTA.allowedBuckets?.includes(bucket.name);
-                        
+
                         return (
                           <Grid item xs={12} sm={6} key={bucket.name}>
-                            <Paper 
-                              elevation={0} 
-                              sx={{ 
-                                p: 2, 
+                            <Paper
+                              elevation={0}
+                              sx={{
+                                p: 2,
                                 border: '1px solid',
                                 borderColor: isAllowed ? 'success.main' : 'grey.300',
                                 bgcolor: isAllowed ? '#e0f7e0' : 'background.paper',
@@ -797,7 +1015,7 @@ const TaManagementPage: React.FC = () => {
                                     Min Deposit: ₹{bucket.minDeposit.toLocaleString()}
                                   </Typography>
                                 </Box>
-                                
+
                                 {isAllowed ? (
                                   <Button
                                     variant="outlined"
@@ -862,48 +1080,62 @@ const TaManagementPage: React.FC = () => {
               </Button>
 
               {/* Buttons for Approved Users */}
-              {selectedTA.status === 'Approved' && (
+              {(selectedTA.status === 'APPROVED_BY_ADMIN' || selectedTA.status === 'ACTIVE') && (
                 <>
                   <Button
                     variant="outlined"
                     color="error"
-                    onClick={() => handleBlock(selectedTA.id)}
+                    onClick={() => handleStatusChange(selectedTA.id, 'SUSPENDED')}
                     sx={{ mx: 1 }}
                   >
                     Block
                   </Button>
-                  {selectedTA.verification === 'Not Verified' && (
+                  {(selectedTA.status === 'APPROVED_BY_ADMIN' || selectedTA.status === 'ACTIVE') && (
                     <Button
                       variant="outlined"
                       color="primary"
-                      onClick={() => handleRequestOTP(selectedTA.id)}
+                      onClick={() => handleStatusChange(selectedTA.id, 'PENDING_TA_AGREEMENT')}
                       sx={{ mx: 1 }}
                     >
-                      Request Aadhar Verification
+                      Request Aggrement
                     </Button>
                   )}
                 </>
               )}
 
+              {/* Buttons for Approved Users */}
+              {(selectedTA.status === 'PENDING_TA_AGREEMENT') && (
+                <>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleStatusChange(selectedTA.id, 'SUSPENDED')}
+                    sx={{ mx: 1 }}
+                  >
+                    Block
+                  </Button>
+                </>
+              )}
+
               {/* Buttons for Blocked Users */}
-              {selectedTA.status === 'Blocked' && (
+              {(selectedTA.status === 'SUSPENDED' || selectedTA.status === 'LOCKED') && (
                 <Button
                   variant="contained"
                   color="success"
-                  onClick={() => handleApprove(selectedTA.id)}
+                  onClick={() => handleStatusChange(selectedTA.id, 'APPROVED_BY_ADMIN')}
                   sx={{ mx: 1 }}
                 >
                   Approve
                 </Button>
               )}
 
-              {/* Buttons for Pending Users */}
-              {selectedTA.status === 'Pending' && (
+              {/* Buttons for Pending User and with nsim cert */}
+              {(selectedTA.status === 'PENDING_VERIFICATION_FROM_ADMIN' && selectedTA.documents?.nsimDocumentKey != null) && (
                 <>
                   <Button
                     variant="outlined"
-                    onClick={() => handleDecline(selectedTA.id)}
-                    sx={{ 
+                    onClick={() => handleStatusChange(selectedTA.id, 'REJECTED_BY_ADMIN')}
+                    sx={{
                       mx: 1,
                       bgcolor: 'grey.200',
                       color: 'grey.700',
@@ -919,7 +1151,7 @@ const TaManagementPage: React.FC = () => {
                   <Button
                     variant="outlined"
                     color="error"
-                    onClick={() => handleBlock(selectedTA.id)}
+                    onClick={() => handleStatusChange(selectedTA.id, 'SUSPENDED')}
                     sx={{ mx: 1 }}
                   >
                     Block
@@ -927,23 +1159,66 @@ const TaManagementPage: React.FC = () => {
                   <Button
                     variant="contained"
                     color="success"
-                    onClick={() => handleApprove(selectedTA.id)}
+                    onClick={() => handleStatusChange(selectedTA.id, 'APPROVED_BY_ADMIN')}
                   >
                     Approve
                   </Button>
                 </>
               )}
 
-              {/* Buttons for Declined Users */}
-              {selectedTA.status === 'Declined' && (
+
+              {/* Buttons for pending and non nsim certificate users */}
+              {(selectedTA.status === 'PENDING_VERIFICATION_FROM_ADMIN' && selectedTA.documents?.nsimDocumentKey == null) && (
                 <Button
                   variant="contained"
                   color="success"
-                  onClick={() => handleApprove(selectedTA.id)}
+                  onClick={() => handleLinkNsimAndApprove(selectedTA.id)}
+                  sx={{ mx: 1 }}
+                >
+                  Link NSIM and Approve
+                </Button>
+              )}
+
+              {/* Buttons for Declined Users */}
+              {(selectedTA.status === 'REJECTED_BY_ADMIN' || selectedTA.status === 'TA_AGREEMENT_REJECTED') && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleStatusChange(selectedTA.id, 'APPROVED_BY_ADMIN')}
                   sx={{ mx: 1 }}
                 >
                   Approve
                 </Button>
+              )}
+
+              {/* Buttons for TA_AGREEMENT_SIGNED status */}
+              {selectedTA.status === 'TA_AGREEMENT_SIGNED' && (
+                <>
+                  <Button
+                    variant="outlined"
+                    onClick={() => handleStatusChange(selectedTA.id, 'TA_AGREEMENT_REJECTED')}
+                    sx={{
+                      mx: 1,
+                      bgcolor: 'grey.200',
+                      color: 'grey.700',
+                      borderColor: 'grey.400',
+                      '&:hover': {
+                        bgcolor: 'grey.300',
+                        borderColor: 'grey.500',
+                      }
+                    }}
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleProceedWithAgreement(selectedTA.id)}
+                    sx={{ mx: 1 }}
+                  >
+                    Proceed with Agreement
+                  </Button>
+                </>
               )}
             </DialogActions>
           </>
@@ -957,52 +1232,73 @@ const TaManagementPage: React.FC = () => {
         maxWidth="xl"
         fullWidth
       >
-        <DialogTitle>Submitted Studies</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Submitted Studies - {selectedTA?.name}
+            </Typography>
+            {loadingStudies && (
+              <CircularProgress size={24} />
+            )}
+          </Box>
+        </DialogTitle>
         <DialogContent>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Exchange</TableCell>
-                  <TableCell>Index</TableCell>
-                  <TableCell>Stock</TableCell>
-                  <TableCell>Current Price</TableCell>
-                  <TableCell>Action</TableCell>
-                  <TableCell>Expected Price</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {mockStudies.map((study) => (
-                  <TableRow key={study.id}>
-                    <TableCell>{study.submittedDate}</TableCell>
-                    <TableCell>{study.exchange}</TableCell>
-                    <TableCell>{study.index}</TableCell>
-                    <TableCell>{study.stock}</TableCell>
-                    <TableCell>₹{study.currentPrice.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Typography
-                        color={study.action === 'BUY' ? 'success.main' : 'error.main'}
-                        fontWeight="bold"
-                      >
-                        {study.action}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>₹{study.expectedPrice.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Button
-                        startIcon={<VisibilityIcon />}
-                        onClick={() => handleViewStudyDetails(study)}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
+          {studiesError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {studiesError}
+            </Alert>
+          )}
+
+          {studies.length === 0 && !loadingStudies && !studiesError ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No studies found for this TA.
+            </Alert>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Exchange</TableCell>
+                    <TableCell>Index</TableCell>
+                    <TableCell>Stock</TableCell>
+                    <TableCell>Current Price</TableCell>
+                    <TableCell>Action</TableCell>
+                    <TableCell>Expected Price</TableCell>
+                    <TableCell>Actions</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {studies.map((study) => (
+                    <TableRow key={study.id}>
+                      <TableCell>{new Date(study.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{study.stockExchange}</TableCell>
+                      <TableCell>{study.stockIndex}</TableCell>
+                      <TableCell>{study.stockName}</TableCell>
+                      <TableCell>₹{study.currentPrice.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Typography
+                          color={study.action === 'BUY' ? 'success.main' : 'error.main'}
+                          fontWeight="bold"
+                        >
+                          {study.action}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>₹{study.expectedPrice.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Button
+                          startIcon={<VisibilityIcon />}
+                          onClick={() => handleViewStudyDetails(study)}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseStudyDialog}>Close</Button>
@@ -1022,27 +1318,27 @@ const TaManagementPage: React.FC = () => {
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
+                  Stock
+                </Typography>
+                <Typography variant="body1">
+                  {selectedStudy.stockName}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
                   Exchange
                 </Typography>
-                <Typography variant="body1">{selectedStudy.exchange}</Typography>
+                <Typography variant="body1">
+                  {selectedStudy.stockExchange}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Index
                 </Typography>
-                <Typography variant="body1">{selectedStudy.index}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Stock
+                <Typography variant="body1">
+                  {selectedStudy.stockIndex}
                 </Typography>
-                <Typography variant="body1">{selectedStudy.stock}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Current Price
-                </Typography>
-                <Typography variant="body1">₹{selectedStudy.currentPrice.toFixed(2)}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
@@ -1050,25 +1346,45 @@ const TaManagementPage: React.FC = () => {
                 </Typography>
                 <Typography
                   variant="body1"
-                  color={selectedStudy.action === 'BUY' ? 'success.main' : 'error.main'}
-                  fontWeight="bold"
+                  sx={{
+                    color: selectedStudy.action === 'BUY' ? 'success.main' : 'error.main',
+                    fontWeight: 'bold'
+                  }}
                 >
                   {selectedStudy.action}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
+                  Current Price
+                </Typography>
+                <Typography variant="body1">
+                  ₹{selectedStudy.currentPrice.toFixed(2)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
                   Expected Price
                 </Typography>
-                <Typography variant="body1">₹{selectedStudy.expectedPrice.toFixed(2)}</Typography>
+                <Typography variant="body1">
+                  ₹{selectedStudy.expectedPrice.toFixed(2)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Submitted Date
+                </Typography>
+                <Typography variant="body1">
+                  {new Date(selectedStudy.createdAt).toLocaleString()}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Study Analysis
+                  Analysis
                 </Typography>
-                <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-                  <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>
-                    {selectedStudy.studyText}
+                <Paper sx={{ p: 2, mt: 1, bgcolor: 'grey.50' }}>
+                  <Typography variant="body1">
+                    {selectedStudy.analysis}
                   </Typography>
                 </Paper>
               </Grid>
@@ -1077,6 +1393,108 @@ const TaManagementPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseStudyDetailsDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* NSIM Link Dialog */}
+      <Dialog
+        open={openNsimLinkDialog}
+        onClose={handleCloseNsimLinkDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Select NSIM Document to Link</DialogTitle>
+        <DialogContent>
+          {loadingNsimUsers ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box>
+              {error ? (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table sx={{ minWidth: 650 }} aria-label="NSIM users table">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>NAME</TableCell>
+                        <TableCell>EMAIL</TableCell>
+                        <TableCell>NSIM NUMBER</TableCell>
+                        <TableCell>ACTION</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {nsimUsers.map((user) => (
+                        <TableRow
+                          key={user.id}
+                          sx={{
+                            bgcolor: selectedNsimUser?.id === user.id ? 'primary.lighter' : 'inherit'
+                          }}
+                        >
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Avatar sx={{ mr: 2, bgcolor: 'primary.light' }}>
+                                {user.initials}
+                              </Avatar>
+                              <Stack>
+                                <Typography variant="body1">{user.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {user.email}
+                                </Typography>
+                              </Stack>
+                            </Box>
+                          </TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.nsimNumber}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant={selectedNsimUser?.id === user.id ? "contained" : "outlined"}
+                              color="primary"
+                              onClick={() => handleSelectNsimUser(user)}
+                              sx={{
+                                bgcolor: selectedNsimUser?.id === user.id ? 'primary.main' : 'transparent',
+                                color: selectedNsimUser?.id === user.id ? 'white' : 'primary.main',
+                                '&:hover': {
+                                  bgcolor: selectedNsimUser?.id === user.id ? 'primary.dark' : 'action.hover',
+                                }
+                              }}
+                            >
+                              {selectedNsimUser?.id === user.id ? "Selected" : "Select"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseNsimLinkDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleConfirmNsimLink}
+            disabled={!selectedNsimUser}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'action.disabledBackground',
+                color: 'action.disabled'
+              }
+            }}
+          >
+            Link and Approve
+          </Button>
         </DialogActions>
       </Dialog>
     </AdminLayout>

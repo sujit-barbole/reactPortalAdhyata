@@ -15,14 +15,16 @@ import {
   DialogActions,
   Button,
 } from '@mui/material';
-import { 
+import {
   Dashboard as DashboardIcon,
   Person as ProfileIcon,
   Logout as LogoutIcon,
   History as HistoryIcon,
-  CompareArrows as ReconciliationIcon
+  CompareArrows as ReconciliationIcon,
+  Group as TAManagementIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const DRAWER_WIDTH = 240;
 
@@ -32,6 +34,7 @@ interface TALayoutProps {
 
 const TALayout: React.FC<TALayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const { userData } = useAuth();
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const handleLogout = () => {
@@ -40,11 +43,17 @@ const TALayout: React.FC<TALayoutProps> = ({ children }) => {
     navigate('/');
   };
 
+  // Determine if user is admin to show admin-specific menu items
+  const isAdmin = userData?.role === 'ADMIN';
+
+  // Create sidebar items based on user role
   const sidebarItems = [
     { text: 'MAIN', type: 'header' },
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/tadashboard' },
     { text: 'Call History', icon: <HistoryIcon />, path: '/callhistory' },
     { text: 'Reconciliation', icon: <ReconciliationIcon />, path: '/reconciliation' },
+    // Show TA Management only for admin users
+    ...(isAdmin ? [{ text: 'TA Management', icon: <TAManagementIcon />, path: '/tamanagement' }] : []),
     { text: 'ACCOUNT', type: 'header' },
     { text: 'Profile', icon: <ProfileIcon />, path: '/taprofile' },
     { text: 'Logout', icon: <LogoutIcon />, path: '#' },
@@ -73,9 +82,9 @@ const TALayout: React.FC<TALayoutProps> = ({ children }) => {
           },
         }}
       >
-        <Box 
-          sx={{ 
-            p: 2, 
+        <Box
+          sx={{
+            p: 2,
             borderBottom: '1px solid rgba(255,255,255,0.1)',
             cursor: 'pointer'
           }}

@@ -13,11 +13,16 @@ import {
   Select,
   OutlinedInput,
   InputAdornment,
+  Snackbar,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import NonVerifiedTALayout from '../components/NonVerifiedTALayout';
+import { nonVerifiedTAService } from '../services/api/nonVerifiedTAService';
+import { useAuth } from '../context/AuthContext';
 
 type ExchangeId = 1 | 2 | 3;
 
@@ -75,6 +80,10 @@ const SubmitStudy: React.FC = () => {
   const [exchangeSearch, setExchangeSearch] = useState('');
   const [indexSearch, setIndexSearch] = useState('');
   const [stockSearch, setStockSearch] = useState('');
+  const { userData } = useAuth();
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info');
 
   const handleExchangeChange = (event: any) => {
     setExchange(event.target.value as ExchangeId);
@@ -83,23 +92,25 @@ const SubmitStudy: React.FC = () => {
   };
 
   const handleIndexChange = (event: any) => {
+    console.log('Setting index to:', event.target.value);
     setIndex(event.target.value);
     setStock('');
   };
 
   const handleStockChange = (event: any) => {
+    console.log('Setting stock to:', event.target.value);
     setStock(event.target.value);
   };
 
-  const filteredExchanges = exchanges.filter(ex => 
+  const filteredExchanges = exchanges.filter(ex =>
     ex.name.toLowerCase().includes(exchangeSearch.toLowerCase())
   );
 
-  const filteredIndices = indices[exchange as ExchangeId]?.filter(idx => 
+  const filteredIndices = indices[exchange as ExchangeId]?.filter(idx =>
     idx.name.toLowerCase().includes(indexSearch.toLowerCase())
   ) || [];
 
-  const filteredStocks = stocks[exchange as ExchangeId]?.filter(stk => 
+  const filteredStocks = stocks[exchange as ExchangeId]?.filter(stk =>
     stk.name.toLowerCase().includes(stockSearch.toLowerCase())
   ) || [];
 
@@ -114,6 +125,80 @@ const SubmitStudy: React.FC = () => {
     setExchangeSearch('');
     setIndexSearch('');
     setStockSearch('');
+  };
+
+  const handleSubmitStudy = async () => {
+    if (!userData || !userData.id) {
+      setSnackbarMessage('User ID not found. You may not be logged in.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    try {
+      // Find the exchange name based on the selected exchange ID
+      const selectedExchangeName = exchange ? exchanges.find(ex => ex.id === exchange)?.name || '' : '';
+
+      // For index and stock, we need to convert the string ID back to a number for comparison
+      // or ensure we're comparing strings to strings
+
+      // For index
+      const selectedIndexObj = index && exchange ?
+        indices[exchange as ExchangeId].find(idx => idx.id.toString() === index.toString()) : null;
+      const selectedIndexName = selectedIndexObj ? selectedIndexObj.name : '';
+
+      // For stock
+      const selectedStockObj = stock && exchange ?
+        stocks[exchange as ExchangeId].find(stk => stk.id.toString() === stock.toString()) : null;
+      const selectedStockName = selectedStockObj ? selectedStockObj.name : '';
+
+      console.log('Selected objects:', {
+        indexObj: selectedIndexObj,
+        stockObj: selectedStockObj
+      });
+
+      const studyData = {
+        userId: userData.id,
+        stockExchange: selectedExchangeName,
+        stockName: selectedStockName,
+        stockIndex: selectedIndexName,
+        currentPrice: parseFloat(currentPrice),
+        expectedPrice: parseFloat(expectedPrice),
+        action: action,
+        analysis: studyText
+      };
+
+      console.log('Study data being sent:', studyData);
+
+      const response = await nonVerifiedTAService.submitStudy(studyData);
+
+      if (response.status === 'SUCCESS' && response.data) {
+        // Show success message
+        setSnackbarMessage('Study submitted successfully!');
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        handleReset(); // Clear the form
+      } else {
+        // Extract the actual error message from the response
+        const errorMsg = response.error || 'Unknown error';
+        // Clean up duplicated error prefixes if present
+        const cleanErrorMsg = errorMsg.replace(/Failed to submit study: /g, '');
+
+        console.error('Failed to submit study:', cleanErrorMsg);
+        setSnackbarMessage(cleanErrorMsg);
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error: any) {
+      console.error('Error submitting study:', error);
+      setSnackbarMessage(error.message || 'Error submitting study. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
   };
 
   return (
@@ -302,6 +387,7 @@ const SubmitStudy: React.FC = () => {
                     <Button
                       variant="contained"
                       disabled={!studyText || !action || !expectedPrice || !currentPrice}
+                      onClick={handleSubmitStudy}
                     >
                       Submit Study
                     </Button>
@@ -312,6 +398,22 @@ const SubmitStudy: React.FC = () => {
           </Grid>
         </Paper>
       </Container>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          <AlertTitle>{snackbarSeverity === 'success' ? 'Success' : 'Error'}</AlertTitle>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </NonVerifiedTALayout>
   );
 };

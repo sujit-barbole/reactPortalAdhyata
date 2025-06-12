@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -13,12 +13,13 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { 
-  Edit as EditIcon, 
-  Save as SaveIcon, 
+import {
+  Edit as EditIcon,
+  Save as SaveIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 import NonVerifiedTALayout from '../components/NonVerifiedTALayout';
+import { useAuth } from '../context/AuthContext';
 
 interface ProfileData {
   fullName: string;
@@ -26,18 +27,21 @@ interface ProfileData {
   phoneNumber: string;
   experience: string;
   education: string;
+  aadhaarNumber: string;
+  status: string;
 }
 
-const initialProfileData: ProfileData = {
-  fullName: 'John Doe',
-  email: 'john.doe@example.com',
-  phoneNumber: '9876543210',
-  experience: '5 years in IT sector',
-  education: 'B.Tech Computer Science',
-};
-
 const NonVerifiedTAProfile: React.FC = () => {
-  const [profileData, setProfileData] = useState<ProfileData>(initialProfileData);
+  const { userData } = useAuth();
+  const [profileData, setProfileData] = useState<ProfileData>({
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    experience: '5 years in IT sector', // Default value as it might not be in userData
+    education: 'B.Tech Computer Science', // Default value as it might not be in userData
+    aadhaarNumber: '',
+    status: ''
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [openSaveConfirmationDialog, setOpenSaveConfirmationDialog] = useState(false);
@@ -53,6 +57,21 @@ const NonVerifiedTAProfile: React.FC = () => {
     confirmPassword: '',
     saveConfirmationPassword: ''
   });
+
+  // Load user data when component mounts
+  useEffect(() => {
+    if (userData) {
+      setProfileData({
+        fullName: userData.name || '',
+        email: userData.email || '',
+        phoneNumber: userData.phoneNumber || '',
+        experience: '5 years in IT sector', // Default value as it might not be in userData
+        education: 'B.Tech Computer Science', // Default value as it might not be in userData
+        aadhaarNumber: userData.aadhaarNumber || '',
+        status: userData.status || ''
+      });
+    }
+  }, [userData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -108,8 +127,8 @@ const NonVerifiedTAProfile: React.FC = () => {
 
   const handleChangePassword = () => {
     const newPasswordError = validatePassword(passwordData.newPassword);
-    const confirmPasswordError = passwordData.newPassword !== passwordData.confirmPassword 
-      ? 'Passwords do not match' 
+    const confirmPasswordError = passwordData.newPassword !== passwordData.confirmPassword
+      ? 'Passwords do not match'
       : '';
 
     setPasswordErrors({
@@ -127,6 +146,26 @@ const NonVerifiedTAProfile: React.FC = () => {
         confirmPassword: '',
         saveConfirmationPassword: ''
       });
+    }
+  };
+
+  // Get status display text
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'APPROVED_BY_ADMIN':
+        return 'Approved by Admin';
+      case 'REJECTED_BY_ADMIN':
+        return 'Rejected by Admin';
+      case 'PENDING_TA_AGREEMENT':
+        return 'Pending Agreement';
+      case 'TA_AGREEMENT_INITIATED':
+        return 'Agreement Initiated';
+      case 'TA_AGREEMENT_SIGNED':
+        return 'Agreement Signed';
+      case 'ADMIN_AGREEMENT_SIGNATURE_INITIATED':
+        return 'Admin Signature Initiated';
+      default:
+        return status;
     }
   };
 
@@ -199,7 +238,7 @@ const NonVerifiedTAProfile: React.FC = () => {
             margin="normal"
           />
         </Grid>
-        <Grid item xs={12}>
+        <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
             label="Education"
@@ -207,6 +246,26 @@ const NonVerifiedTAProfile: React.FC = () => {
             value={profileData.education}
             onChange={handleInputChange}
             disabled={!isEditing}
+            margin="normal"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Aadhaar Number"
+            name="aadhaarNumber"
+            value={profileData.aadhaarNumber}
+            disabled={true} // Always disabled as Aadhaar shouldn't be editable
+            margin="normal"
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Account Status"
+            name="status"
+            value={getStatusDisplayText(profileData.status)}
+            disabled={true} // Always disabled as status shouldn't be editable
             margin="normal"
           />
         </Grid>
@@ -264,10 +323,10 @@ const NonVerifiedTAProfile: React.FC = () => {
   );
 
   const renderSaveConfirmationDialog = () => (
-    <Dialog 
-      open={openSaveConfirmationDialog} 
-      onClose={() => setOpenSaveConfirmationDialog(false)} 
-      maxWidth="sm" 
+    <Dialog
+      open={openSaveConfirmationDialog}
+      onClose={() => setOpenSaveConfirmationDialog(false)}
+      maxWidth="sm"
       fullWidth
     >
       <DialogTitle>Confirm Changes</DialogTitle>
@@ -320,6 +379,9 @@ const NonVerifiedTAProfile: React.FC = () => {
               </Typography>
               <Typography variant="subtitle1" color="text.secondary">
                 Non-Verified Technical Associate
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Status: {getStatusDisplayText(profileData.status)}
               </Typography>
             </Box>
           </Box>

@@ -1,20 +1,7 @@
+import { apiClient, API_BASE_URL, ApiResponse, handleApiError } from './apiConfig';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081/api/v1';
-
-export interface RegistrationRequest {
-  username: string;
-  password: string;
-  confirmPassword: string;
-  name: string;
-  email: string;
-  role: string;
-  phoneNumber: string;
-  aadhaarNumber: string;
-  nsimNumber?: string;
-  nsimCertificate?: string;
-}
-
+// Auth-related interfaces
 export interface RegistrationFormData {
   nsimCertificate?: string | null;
   aadhaarNumber: string;
@@ -38,12 +25,6 @@ export interface RegistrationData {
   aadhaarNumber: string;
   nsimDocumentKey: string;
   isOtpSentToUser: boolean;
-}
-
-export interface ApiResponse<T> {
-  status: string;
-  data: T;
-  error: string | null;
 }
 
 export interface VerifyOtpResponse {
@@ -74,10 +55,10 @@ export interface LoginResponse {
   error: string | null;
 }
 
-export const apiService = {
+export const authService = {
   // Login endpoint
   login: async (usernameOrEmail: string, password: string): Promise<LoginResponse> => {
-    const url = `${API_BASE_URL}/users/login`;
+    const url = `/users/login`;
     console.log('🚀 Login API Call:', {
       url,
       method: 'POST',
@@ -85,18 +66,22 @@ export const apiService = {
     });
 
     try {
-      const response = await axios.post(url, {
+      // Use axios directly for login to ensure proper cookie handling
+      const response = await apiClient.post(url, {
         usernameOrEmail,
         password
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
+
       console.log('✅ Login API Response:', {
         status: response.status,
         data: response.data
       });
+
+      // Store auth token if it's in the response
+      if (response.data?.data?.token) {
+        localStorage.setItem('authToken', response.data.data.token);
+      }
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Login API Error:', {
@@ -109,7 +94,7 @@ export const apiService = {
 
   // Registration endpoint
   register: async (data: RegistrationFormData): Promise<ApiResponse<RegistrationData>> => {
-    const url = `${API_BASE_URL}/users/register`;
+    const url = `/users/register`;
     console.log('🚀 Registration API Call:', {
       url,
       method: 'POST',
@@ -117,11 +102,7 @@ export const apiService = {
     });
 
     try {
-      const response = await axios.post(url, data, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiClient.post(url, data);
       console.log('✅ Registration API Response:', {
         status: response.status,
         data: response.data
@@ -138,7 +119,7 @@ export const apiService = {
 
   // OTP verification endpoint
   verifyOtp: async (userId: number, otp: string): Promise<VerifyOtpResponse> => {
-    const url = `${API_BASE_URL}/users/submit-otp`;
+    const url = `/users/submit-otp`;
     console.log('🚀 Verify OTP API Call:', {
       url,
       method: 'POST',
@@ -146,7 +127,7 @@ export const apiService = {
     });
 
     try {
-      const response = await axios.post(url, {
+      const response = await apiClient.post(url, {
         userId,
         otp
       });
@@ -166,7 +147,7 @@ export const apiService = {
 
   // Resend OTP endpoint
   resendOtp: async (userId: number): Promise<ApiResponse<RegistrationData>> => {
-    const url = `${API_BASE_URL}/resend-otp`;
+    const url = `/users/resend-otp`;
     console.log('🚀 Resend OTP API Call:', {
       url,
       method: 'POST',
@@ -174,7 +155,7 @@ export const apiService = {
     });
 
     try {
-      const response = await axios.post(url, {
+      const response = await apiClient.post(url, {
         userId
       });
       console.log('✅ Resend OTP API Response:', {
@@ -189,8 +170,17 @@ export const apiService = {
       });
       throw new Error(error.response?.data?.error || 'Failed to resend OTP');
     }
+  },
+  
+  // Logout endpoint
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post('/users/logout');
+      localStorage.removeItem('authToken');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still remove the token even if the API call fails
+      localStorage.removeItem('authToken');
+    }
   }
 };
-
-// Make sure the file is treated as a module
-export { };

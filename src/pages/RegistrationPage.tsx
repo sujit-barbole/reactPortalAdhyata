@@ -31,7 +31,8 @@ import {
   ArrowBack as ArrowBackIcon,
   CheckCircleOutline as CheckCircleOutlineIcon,
 } from '@mui/icons-material';
-import { apiService, RegistrationFormData } from '../services/api';
+import { authService } from '../services/api/authService';
+import type { RegistrationFormData } from '../services/api/authService';
 
 interface FormData {
   aadhaarNumber: string;
@@ -222,7 +223,7 @@ const RegistrationPage: React.FC = () => {
         return;
       }
 
-      const response = await apiService.verifyOtp(Number(userId), otp);
+      const response = await authService.verifyOtp(Number(userId), otp);
 
       if (response.status === 'SUCCESS') {
         handleCloseOtpDialog();
@@ -244,8 +245,8 @@ const RegistrationPage: React.FC = () => {
 
   const handleResendOtp = async () => {
     try {
-      const response = await apiService.resendOtp(Number(userId));
-      if (response.status === 'SUCCESS' && response.data.isOtpSentToUser) {
+      const response = await authService.resendOtp(Number(userId));
+      if (response.status === 'SUCCESS' && response.data && response.data.isOtpSentToUser) {
         setOtpTimer(165); // Reset timer
         alert('OTP has been resent successfully.');
       } else {
@@ -301,9 +302,16 @@ const RegistrationPage: React.FC = () => {
       // Prepare NSIM certificate data if available
       let nsimCertificateData = null;
       if (selectedFile) {
-        const reader = new FileReader();
+        // Convert file to base64
         nsimCertificateData = await new Promise<string | null>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
+          const reader = new FileReader();
+          reader.onload = () => {
+            // The result is a base64 string with format "data:application/pdf;base64,ACTUAL_BASE64"
+            // We need to extract just the base64 part
+            const base64String = reader.result as string;
+            const base64Content = base64String.split(',')[1]; // Get content after the comma
+            resolve(base64Content);
+          };
           reader.onerror = () => resolve(null);
           reader.readAsDataURL(selectedFile);
         });
@@ -318,14 +326,14 @@ const RegistrationPage: React.FC = () => {
         aadhaarNumber: formData.aadhaarNumber,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        role: 'TRADING_ASSISTANT', // Set the role for registration
+        role: 'TRUSTED_ASSOCIATE', // Set the role for registration
         nsimCertificate: nsimCertificateData
       };
 
       // Call registration API
-      const response = await apiService.register(requestData);
+      const response = await authService.register(requestData);
 
-      if (response.status === 'SUCCESS' && response.data.isOtpSentToUser) {
+      if (response.status === 'SUCCESS' && response.data && response.data.isOtpSentToUser) {
         setIsOtpSent(true);
         setUserId(response.data.id.toString());
         setOpenOtpDialog(true);

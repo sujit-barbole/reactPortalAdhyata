@@ -29,7 +29,7 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { apiService } from '../services/api';
+import { authService } from '../services/api/authService';
 
 interface ForgotPasswordState {
   email: string;
@@ -40,7 +40,7 @@ interface ForgotPasswordState {
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, userRole } = useAuth();
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -68,7 +68,17 @@ const LoginPage: React.FC = () => {
       }
 
       await login(usernameOrEmail, password);
-      navigate('/tadashboard');
+
+      // Navigate based on user role
+      if (userRole === 'admin') {
+        navigate('/admindashboard');
+      } else if (userRole === 'ta') {
+        navigate('/tadashboard');
+      } else if (userRole === 'nta') {
+        navigate('/nonverifiedtadashboard');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       setError((error as Error).message || 'Login failed. Please try again.');
@@ -161,8 +171,8 @@ const LoginPage: React.FC = () => {
       }}
     >
       <DialogContent sx={{ textAlign: 'center', p: 0 }}>
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             mb: 3,
             width: 80,
             height: 80,
@@ -174,18 +184,18 @@ const LoginPage: React.FC = () => {
             mx: 'auto'
           }}
         >
-          <ErrorIcon 
-            sx={{ 
+          <ErrorIcon
+            sx={{
               fontSize: 40,
               color: '#d32f2f'
-            }} 
+            }}
           />
         </Box>
-        <Typography 
-          variant="h5" 
-          gutterBottom 
-          sx={{ 
-            fontWeight: 600, 
+        <Typography
+          variant="h5"
+          gutterBottom
+          sx={{
+            fontWeight: 600,
             color: '#1A1A1A',
             fontSize: '24px',
             lineHeight: 1.3,
@@ -194,9 +204,9 @@ const LoginPage: React.FC = () => {
         >
           Access Denied
         </Typography>
-        <Typography 
-          variant="body1" 
-          sx={{ 
+        <Typography
+          variant="body1"
+          sx={{
             color: '#666666',
             fontSize: '16px',
             mb: 3,
@@ -298,11 +308,11 @@ const LoginPage: React.FC = () => {
               onChange={handleForgotPasswordChange}
               required
               margin="normal"
-              error={forgotPasswordData.confirmPassword !== '' && 
-                     forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword}
+              error={forgotPasswordData.confirmPassword !== '' &&
+                forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword}
               helperText={
-                forgotPasswordData.confirmPassword !== '' && 
-                forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword
+                forgotPasswordData.confirmPassword !== '' &&
+                  forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword
                   ? "Passwords do not match"
                   : ""
               }
@@ -312,7 +322,7 @@ const LoginPage: React.FC = () => {
               variant="contained"
               onClick={handleResetPassword}
               disabled={
-                !forgotPasswordData.newPassword || 
+                !forgotPasswordData.newPassword ||
                 !forgotPasswordData.confirmPassword ||
                 forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword
               }
@@ -329,8 +339,8 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <Box 
-      sx={{ 
+    <Box
+      sx={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -367,9 +377,9 @@ const LoginPage: React.FC = () => {
       }}
     >
       <Container maxWidth="sm">
-        <Paper 
+        <Paper
           elevation={3}
-          sx={{ 
+          sx={{
             width: '100%',
             p: { xs: 3, sm: 4, md: 5 },
             borderRadius: 2,
@@ -414,10 +424,10 @@ const LoginPage: React.FC = () => {
             },
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             mb: 4,
             position: 'relative',
             '&::before': {
@@ -433,19 +443,19 @@ const LoginPage: React.FC = () => {
               zIndex: -1,
             }
           }}>
-            <AccountCircleIcon 
-              sx={{ 
-                fontSize: 48, 
+            <AccountCircleIcon
+              sx={{
+                fontSize: 48,
                 color: 'primary.main',
                 mb: 2,
                 animation: 'bounce 2s ease-in-out infinite',
-              }} 
+              }}
             />
-            <Typography 
-              variant="h4" 
-              component="h1" 
+            <Typography
+              variant="h4"
+              component="h1"
               align="center"
-              sx={{ 
+              sx={{
                 fontWeight: 'bold',
                 color: 'primary.main',
                 fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
@@ -458,9 +468,9 @@ const LoginPage: React.FC = () => {
             >
               Welcome Back
             </Typography>
-            <Typography 
-              variant="subtitle1" 
-              color="text.secondary" 
+            <Typography
+              variant="subtitle1"
+              color="text.secondary"
               align="center"
               sx={{ mt: 1 }}
             >
@@ -511,9 +521,9 @@ const LoginPage: React.FC = () => {
             }}
           />
 
-          <Button 
-            variant="contained" 
-            fullWidth 
+          <Button
+            variant="contained"
+            fullWidth
             size="large"
             endIcon={<ArrowForwardIcon />}
             onClick={handleLogin}
@@ -530,15 +540,15 @@ const LoginPage: React.FC = () => {
           </Button>
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               color="text.secondary"
             >
               Don't have an account?{' '}
-              <Link 
-                href="/register" 
-                color="primary" 
-                sx={{ 
+              <Link
+                href="/register"
+                color="primary"
+                sx={{
                   textDecoration: 'none',
                   fontWeight: 500,
                   '&:hover': {
@@ -549,11 +559,11 @@ const LoginPage: React.FC = () => {
                 Register here
               </Link>
             </Typography>
-            <Link 
+            <Link
               component="button"
               onClick={handleForgotPasswordOpen}
-              color="primary" 
-              sx={{ 
+              color="primary"
+              sx={{
                 textDecoration: 'none',
                 '&:hover': {
                   textDecoration: 'underline'
@@ -567,8 +577,8 @@ const LoginPage: React.FC = () => {
         </Paper>
 
         {/* Forgot Password Dialog */}
-        <Dialog 
-          open={forgotPasswordOpen} 
+        <Dialog
+          open={forgotPasswordOpen}
           onClose={handleForgotPasswordClose}
           maxWidth="sm"
           fullWidth
@@ -599,10 +609,10 @@ const LoginPage: React.FC = () => {
             </Typography>
           </DialogTitle>
           <DialogContent>
-            <Stepper 
-              activeStep={activeStep} 
-              sx={{ 
-                pt: 3, 
+            <Stepper
+              activeStep={activeStep}
+              sx={{
+                pt: 3,
                 pb: 4,
                 '& .MuiStepLabel-label': {
                   fontWeight: 500,
@@ -624,9 +634,9 @@ const LoginPage: React.FC = () => {
             {renderStepContent()}
           </DialogContent>
           <DialogActions>
-            <Button 
+            <Button
               onClick={handleForgotPasswordClose}
-              sx={{ 
+              sx={{
                 color: 'text.secondary',
                 '&:hover': {
                   color: 'error.main',

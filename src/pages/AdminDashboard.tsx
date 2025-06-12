@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -21,9 +22,9 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { 
-  People as PeopleIcon, 
-  AccessTime as AccessTimeIcon, 
+import {
+  People as PeopleIcon,
+  AccessTime as AccessTimeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   TrendingUp as TrendingUpIcon,
@@ -83,10 +84,16 @@ interface ReconciliationRequest {
 }
 
 const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [reconciliationAmount, setReconciliationAmount] = useState<number | null>(null);
   const [selectedReconciliation, setSelectedReconciliation] = useState<ReconciliationRequest | null>(null);
   const [showReconciliationDetails, setShowReconciliationDetails] = useState(false);
+
+  // Function to handle navigation to TA Management
+  const handleTAManagementClick = () => {
+    navigate('/tamanagement');
+  };
 
   const handleReconciliationClick = async () => {
     try {
@@ -288,22 +295,22 @@ const AdminDashboard: React.FC = () => {
 
           {/* Notifications */}
           <Box sx={{ mt: 3, mb: 4 }}>
-            <Alert 
-              severity="warning" 
+            <Alert
+              severity="warning"
               sx={{ mb: 2 }}
             >
               Pending Stock Calls: There are {pendingCalls.length} calls pending for execution today.
             </Alert>
-            <Alert 
-              severity="warning" 
+            <Alert
+              severity="warning"
             >
               New TA Registration: There are {pendingRegistrations.length} pending registrations requiring review.
             </Alert>
           </Box>
 
           {/* Reconciliation Dialog */}
-          <Dialog 
-            open={showReconciliation} 
+          <Dialog
+            open={showReconciliation}
             onClose={handleCloseReconciliation}
             maxWidth="sm"
             fullWidth
@@ -357,9 +364,9 @@ const AdminDashboard: React.FC = () => {
                           <TableRow key={call.id}>
                             <TableCell>{call.stockName}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={call.action} 
-                                color={call.action === 'Buy' ? 'success' : 'error'} 
+                              <Chip
+                                label={call.action}
+                                color={call.action === 'Buy' ? 'success' : 'error'}
                                 size="small"
                                 variant="outlined"
                               />
@@ -367,9 +374,9 @@ const AdminDashboard: React.FC = () => {
                             <TableCell>₹{call.entryPrice}</TableCell>
                             <TableCell>₹{call.targetPrice}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={call.status} 
-                                color="warning" 
+                              <Chip
+                                label={call.status}
+                                color="warning"
                                 size="small"
                                 variant="outlined"
                               />
@@ -404,9 +411,9 @@ const AdminDashboard: React.FC = () => {
                           <TableRow key={call.id}>
                             <TableCell>{call.stockName}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={call.action} 
-                                color={call.action === 'Buy' ? 'success' : 'error'} 
+                              <Chip
+                                label={call.action}
+                                color={call.action === 'Buy' ? 'success' : 'error'}
                                 size="small"
                                 variant="outlined"
                               />
@@ -414,9 +421,9 @@ const AdminDashboard: React.FC = () => {
                             <TableCell>₹{call.entryPrice}</TableCell>
                             <TableCell>{call.executionTime}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={call.status} 
-                                color="success" 
+                              <Chip
+                                label={call.status}
+                                color="success"
                                 size="small"
                                 variant="outlined"
                               />
@@ -437,7 +444,7 @@ const AdminDashboard: React.FC = () => {
               <PeopleIcon sx={{ mr: 2, color: 'primary.main' }} />
               <Typography variant="h6">TA Management</Typography>
             </Box>
-            
+
             <Grid container spacing={3}>
               {/* Pending Registrations */}
               <Grid item xs={12} md={6}>
@@ -472,9 +479,9 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>{ta.nsimNumber}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={ta.status} 
-                                color="warning" 
+                              <Chip
+                                label={ta.status}
+                                color="warning"
                                 size="small"
                                 variant="outlined"
                               />
@@ -514,9 +521,9 @@ const AdminDashboard: React.FC = () => {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Chip 
-                                label={ta.status} 
-                                color={ta.status === 'Below Threshold' ? 'error' : 'warning'} 
+                              <Chip
+                                label={ta.status}
+                                color={ta.status === 'Below Threshold' ? 'error' : 'warning'}
                                 size="small"
                                 variant="outlined"
                               />
@@ -526,6 +533,20 @@ const AdminDashboard: React.FC = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
+                </Box>
+              </Grid>
+
+              {/* Add a button to navigate to TA Management page */}
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleTAManagementClick}
+                    startIcon={<PeopleIcon />}
+                  >
+                    Go to TA Management
+                  </Button>
                 </Box>
               </Grid>
             </Grid>
@@ -568,7 +589,7 @@ const AdminDashboard: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip 
+                        <Chip
                           label={request.status}
                           color={request.status === 'Pending' ? 'warning' : request.status === 'Approved' ? 'success' : 'error'}
                           size="small"
@@ -610,7 +631,7 @@ const AdminDashboard: React.FC = () => {
                   <Typography variant="h6">
                     Reconciliation Details
                   </Typography>
-                  <Chip 
+                  <Chip
                     label={selectedReconciliation.status}
                     color={selectedReconciliation.status === 'Pending' ? 'warning' : selectedReconciliation.status === 'Approved' ? 'success' : 'error'}
                     size="small"
@@ -653,7 +674,7 @@ const AdminDashboard: React.FC = () => {
                       <Typography variant="subtitle2" color="text.secondary">
                         Total Amount
                       </Typography>
-                      <Typography 
+                      <Typography
                         variant="h6"
                         sx={{
                           color: selectedReconciliation.totalAmount >= 0 ? '#2e7d32' : '#d32f2f',
@@ -686,10 +707,10 @@ const AdminDashboard: React.FC = () => {
                           <TableRow key={call.id}>
                             <TableCell>{call.stock}</TableCell>
                             <TableCell>
-                              <Chip 
+                              <Chip
                                 label={call.type}
                                 size="small"
-                                sx={{ 
+                                sx={{
                                   color: call.type === 'Buy' ? '#2e7d32' : '#d32f2f',
                                   bgcolor: 'transparent',
                                   border: '1px solid',
@@ -705,17 +726,17 @@ const AdminDashboard: React.FC = () => {
                             <TableCell align="right">₹{call.entryPrice.toFixed(2)}</TableCell>
                             <TableCell align="right">₹{call.exitPrice.toFixed(2)}</TableCell>
                             <TableCell>
-                              {new Date(call.date).toLocaleDateString('en-IN', { 
+                              {new Date(call.date).toLocaleDateString('en-IN', {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })}
                             </TableCell>
                             <TableCell>
-                              <Chip 
+                              <Chip
                                 label={call.pnl >= 0 ? 'Success' : 'Failure'}
                                 size="small"
-                                sx={{ 
+                                sx={{
                                   color: call.pnl >= 0 ? '#2e7d32' : '#d32f2f',
                                   bgcolor: 'transparent',
                                   border: '1px solid',
@@ -744,10 +765,10 @@ const AdminDashboard: React.FC = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     mt: 2,
                     p: 2,
@@ -757,9 +778,9 @@ const AdminDashboard: React.FC = () => {
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                       Total Amount to Reconcile:
                     </Typography>
-                    <Typography 
-                      variant="h6" 
-                      sx={{ 
+                    <Typography
+                      variant="h6"
+                      sx={{
                         fontWeight: 600,
                         color: selectedReconciliation.calls.reduce((sum, call) => sum + call.pnl, 0) >= 0 ? '#2e7d32' : '#d32f2f',
                         whiteSpace: 'nowrap'
@@ -771,20 +792,20 @@ const AdminDashboard: React.FC = () => {
                 </Box>
               </DialogContent>
               <DialogActions>
-                <Button 
+                <Button
                   onClick={() => setShowReconciliationDetails(false)}
                   color="inherit"
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleRejectReconciliation}
                   color="error"
                   variant="outlined"
                 >
                   Reject
                 </Button>
-                <Button 
+                <Button
                   onClick={handleApproveReconciliation}
                   variant="contained"
                   color="primary"

@@ -43,8 +43,8 @@ const App: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-            
-            {/* Admin Routes */}
+
+            {/* Admin Routes - for ADMIN role */}
             <Route path="/admindashboard" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboard />
@@ -76,7 +76,7 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } />
 
-            {/* TA Routes */}
+            {/* TA Routes - for TRUSTED_ASSOCIATE with ADMIN_AGREEMENT_SIGNATURE_SIGNED status */}
             <Route path="/tadashboard" element={
               <ProtectedRoute allowedRoles={['ta']}>
                 <TADashboard />
@@ -98,7 +98,7 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } />
 
-            {/* Non-Verified TA Routes */}
+            {/* Non-Verified TA Routes - for TRUSTED_ASSOCIATE with other statuses */}
             <Route path="/nonverifiedtadashboard" element={
               <ProtectedRoute allowedRoles={['nta']}>
                 <NonVerifiedTADashboard />

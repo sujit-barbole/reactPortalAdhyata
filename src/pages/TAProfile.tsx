@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -8,7 +8,6 @@ import {
   TextField,
   Button,
   Avatar,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -19,15 +18,16 @@ import {
   ListItemText,
   ListItemSecondaryAction,
 } from '@mui/material';
-import { 
-  Edit as EditIcon, 
-  Save as SaveIcon, 
+import {
+  Edit as EditIcon,
+  Save as SaveIcon,
   Lock as LockIcon,
   Visibility as VisibilityIcon,
   CloudUpload as CloudUploadIcon,
   Description as DescriptionIcon
 } from '@mui/icons-material';
 import TALayout from '../components/TALayout';
+import { useAuth } from '../context/AuthContext';
 
 interface ProfileData {
   nsimNumber: string;
@@ -37,6 +37,7 @@ interface ProfileData {
   experience: string;
   education: string;
   aadhaarNumber: string;
+  status: string;
 }
 
 interface Document {
@@ -46,16 +47,6 @@ interface Document {
   uploadDate: string;
   status: 'Verified' | 'Pending' | 'Rejected';
 }
-
-const initialProfileData: ProfileData = {
-  nsimNumber: 'NSIM123456',
-  fullName: 'John Doe',
-  email: 'john.doe@example.com',
-  phoneNumber: '9876543210',
-  experience: '5 years in IT sector',
-  education: 'B.Tech Computer Science',
-  aadhaarNumber: '123456789012'
-};
 
 const initialDocuments: Document[] = [
   {
@@ -75,7 +66,17 @@ const initialDocuments: Document[] = [
 ];
 
 const TAProfile: React.FC = () => {
-  const [profileData, setProfileData] = useState<ProfileData>(initialProfileData);
+  const { userData } = useAuth();
+  const [profileData, setProfileData] = useState<ProfileData>({
+    nsimNumber: '',
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    experience: '5 years in IT sector', // Default value as it might not be in userData
+    education: 'B.Tech Computer Science', // Default value as it might not be in userData
+    aadhaarNumber: '',
+    status: ''
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [openSaveConfirmationDialog, setOpenSaveConfirmationDialog] = useState(false);
@@ -95,6 +96,22 @@ const TAProfile: React.FC = () => {
   const [openDocumentDialog, setOpenDocumentDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load user data when component mounts
+  useEffect(() => {
+    if (userData) {
+      setProfileData({
+        nsimNumber: userData.nsimDocumentKey || 'NSIM123456',
+        fullName: userData.name || '',
+        email: userData.email || '',
+        phoneNumber: userData.phoneNumber || '',
+        experience: '5 years in IT sector', // Default value as it might not be in userData
+        education: 'B.Tech Computer Science', // Default value as it might not be in userData
+        aadhaarNumber: userData.aadhaarNumber || '',
+        status: userData.status || ''
+      });
+    }
+  }, [userData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -136,8 +153,6 @@ const TAProfile: React.FC = () => {
   };
 
   const handleConfirmSave = () => {
-    // Here you would typically verify the password with your backend
-    // For demo purposes, we'll just check if it's not empty
     if (passwordData.saveConfirmationPassword) {
       // Here you would typically make an API call to update the profile
       setIsEditing(false);
@@ -154,8 +169,8 @@ const TAProfile: React.FC = () => {
   const handleChangePassword = () => {
     // Validate passwords
     const newPasswordError = validatePassword(passwordData.newPassword);
-    const confirmPasswordError = passwordData.newPassword !== passwordData.confirmPassword 
-      ? 'Passwords do not match' 
+    const confirmPasswordError = passwordData.newPassword !== passwordData.confirmPassword
+      ? 'Passwords do not match'
       : '';
 
     setPasswordErrors({
@@ -208,6 +223,16 @@ const TAProfile: React.FC = () => {
         return '#d32f2f';
       default:
         return '#757575';
+    }
+  };
+
+  // Get status display text
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'ADMIN_AGREEMENT_SIGNATURE_SIGNED':
+        return 'Verified';
+      default:
+        return status;
     }
   };
 
@@ -301,6 +326,26 @@ const TAProfile: React.FC = () => {
             margin="normal"
           />
         </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Aadhaar Number"
+            name="aadhaarNumber"
+            value={profileData.aadhaarNumber}
+            disabled={true} // Always disabled as Aadhaar shouldn't be editable
+            margin="normal"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Account Status"
+            name="status"
+            value={getStatusDisplayText(profileData.status)}
+            disabled={true} // Always disabled as status shouldn't be editable
+            margin="normal"
+          />
+        </Grid>
       </Grid>
     </Paper>
   );
@@ -313,9 +358,9 @@ const TAProfile: React.FC = () => {
 
       <List>
         {documents.map((doc) => (
-          <ListItem 
+          <ListItem
             key={doc.id}
-            sx={{ 
+            sx={{
               border: '1px solid #e0e0e0',
               borderRadius: 1,
               mb: 1,
@@ -334,9 +379,9 @@ const TAProfile: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Uploaded on: {new Date(doc.uploadDate).toLocaleDateString()}
                   </Typography>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
+                  <Typography
+                    variant="body2"
+                    sx={{
                       color: getStatusColor(doc.status),
                       fontWeight: 500
                     }}
@@ -347,8 +392,8 @@ const TAProfile: React.FC = () => {
               }
             />
             <ListItemSecondaryAction>
-              <IconButton 
-                edge="end" 
+              <IconButton
+                edge="end"
                 onClick={() => {
                   setSelectedDocument(doc);
                   setOpenDocumentDialog(true);
@@ -357,8 +402,8 @@ const TAProfile: React.FC = () => {
               >
                 <VisibilityIcon />
               </IconButton>
-              <IconButton 
-                edge="end" 
+              <IconButton
+                edge="end"
                 onClick={() => {
                   setSelectedDocument(doc);
                   fileInputRef.current?.click();
@@ -431,10 +476,10 @@ const TAProfile: React.FC = () => {
   );
 
   const renderSaveConfirmationDialog = () => (
-    <Dialog 
-      open={openSaveConfirmationDialog} 
-      onClose={() => setOpenSaveConfirmationDialog(false)} 
-      maxWidth="sm" 
+    <Dialog
+      open={openSaveConfirmationDialog}
+      onClose={() => setOpenSaveConfirmationDialog(false)}
+      maxWidth="sm"
       fullWidth
     >
       <DialogTitle>Confirm Changes</DialogTitle>
@@ -513,6 +558,9 @@ const TAProfile: React.FC = () => {
               </Typography>
               <Typography variant="subtitle1" color="text.secondary">
                 Trusted Associate
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Status: {getStatusDisplayText(profileData.status)}
               </Typography>
             </Box>
           </Box>
