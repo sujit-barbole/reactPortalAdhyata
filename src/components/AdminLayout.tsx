@@ -26,6 +26,7 @@ import {
   List as StockListIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 
 const DRAWER_WIDTH = 240;
 
@@ -35,10 +36,12 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth(); // Get logout function from AuthContext
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const handleLogout = () => {
-    // Here you would typically clear any authentication tokens or user data
+    // Call the logout function from AuthContext
+    logout();
     setOpenLogoutDialog(false);
     navigate('/');
   };

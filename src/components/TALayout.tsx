@@ -34,11 +34,12 @@ interface TALayoutProps {
 
 const TALayout: React.FC<TALayoutProps> = ({ children }) => {
   const navigate = useNavigate();
-  const { userData } = useAuth();
+  const { userData, logout } = useAuth(); // Get logout function from AuthContext
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const handleLogout = () => {
-    // Here you would typically clear any authentication tokens or user data
+    // Call the logout function from AuthContext
+    logout();
     setOpenLogoutDialog(false);
     navigate('/');
   };

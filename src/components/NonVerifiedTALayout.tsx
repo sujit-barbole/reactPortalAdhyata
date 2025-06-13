@@ -21,6 +21,7 @@ import {
   Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const DRAWER_WIDTH = 240;
 
@@ -30,10 +31,11 @@ interface NonVerifiedTALayoutProps {
 
 const NonVerifiedTALayout: React.FC<NonVerifiedTALayoutProps> = ({ children }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [openLogoutDialog, setOpenLogoutDialog] = React.useState(false);
 
   const handleLogout = () => {
-    // Here you would typically clear any authentication tokens or user data
+    logout();
     setOpenLogoutDialog(false);
     navigate('/');
   };

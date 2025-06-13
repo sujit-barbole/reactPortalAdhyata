@@ -80,9 +80,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
-    setUserRole(null);
-    setUserData(null);
+  const logout = async () => {
+    try {
+      // Call the logout API endpoint
+      await authService.logout();
+      
+      // Clear user data and role
+      setUserRole(null);
+      setUserData(null);
+      
+      // Clear any stored data in localStorage
+      localStorage.removeItem('userData');
+      
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still clear the local state even if the API call fails
+      setUserRole(null);
+      setUserData(null);
+      localStorage.removeItem('userData');
+    }
   };
 
   return (
