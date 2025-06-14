@@ -182,5 +182,17 @@ export const authService = {
       // Still remove the token even if the API call fails
       localStorage.removeItem('authToken');
     }
+  },
+
+  // Get user profile
+  getUserProfile: async (userId: number): Promise<ApiResponse<any>> => {
+    const url = `/users/${userId}/profile`;
+
+    try {
+      const response = await apiClient.get(url);
+      return response.data;
+    } catch (error: any) {
+      return handleApiError(error, 'Failed to fetch user profile');
+    }
   }
 };

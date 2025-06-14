@@ -21,6 +21,7 @@ import NonVerifiedTADashboard from './pages/NonVerifiedTADashboard';
 import NonVerifiedTAProfile from './pages/NonVerifiedTAProfile';
 import SubmitStudy from './pages/SubmitStudy';
 import StudyHistory from './pages/StudyHistory';
+import ESignCallbackPage from './pages/ESignCallbackPage';
 // Create a theme instance
 const theme = createTheme({
   palette: {
@@ -119,6 +120,7 @@ const App: React.FC = () => {
                 <StudyHistory />
               </ProtectedRoute>
             } />
+            <Route path="/api/esign/callback" element={<ESignCallbackPage />} />
           </Routes>
         </Router>
       </AuthProvider>
